@@ -1,0 +1,30 @@
+{
+  "name": "@eventure/api",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "tsx watch src/server.ts",
+    "build": "tsc -p tsconfig.json",
+    "start": "node dist/server.js",
+    "type-check": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@fastify/cors": "^9.0.0",
+    "@fastify/jwt": "^8.0.0",
+    "@fastify/rate-limit": "^9.0.0",
+    "@supabase/supabase-js": "^2.43.0",
+    "@upstash/redis": "^1.31.0",
+    "bullmq": "^5.8.0",
+    "date-fns": "^3.6.0",
+    "fastify": "^4.27.0",
+    "midtrans-client": "^1.3.1",
+    "nanoid": "^5.0.7",
+    "zod": "^3.23.0",
+    "@eventure/shared": "*"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "tsx": "^4.11.0",
+    "typescript": "^5.4.0"
+  }
+}
