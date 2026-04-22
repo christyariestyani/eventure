@@ -9,18 +9,18 @@
     "type-check": "tsc --noEmit"
   },
   "dependencies": {
-    "@fastify/cors": "^9.0.0",
-    "@fastify/jwt": "^8.0.0",
-    "@fastify/rate-limit": "^9.0.0",
+    "@eventure/shared": "*",
+    "@fastify/cors": "^11.2.0",
+    "@fastify/jwt": "^10.0.0",
+    "@fastify/rate-limit": "^10.3.0",
     "@supabase/supabase-js": "^2.43.0",
     "@upstash/redis": "^1.31.0",
     "bullmq": "^5.8.0",
     "date-fns": "^3.6.0",
-    "fastify": "^4.27.0",
+    "fastify": "^5.8.5",
     "midtrans-client": "^1.3.1",
     "nanoid": "^5.0.7",
-    "zod": "^3.23.0",
-    "@eventure/shared": "*"
+    "zod": "^3.23.0"
   },
   "devDependencies": {
     "@types/node": "^20.0.0",
