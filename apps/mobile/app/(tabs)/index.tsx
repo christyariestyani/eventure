@@ -20,12 +20,14 @@ export default function DiscoverScreen() {
   const [activeCategory, setActiveCategory] = useState<string | undefined>(undefined);
   const [debouncedQ, setDebouncedQ] = useState('');
 
-  const { events, isLoading, refetch } = useEvents({
+  const { events, isLoading, isRefetching, refetch: refetchEvents } = useEvents({
     q: debouncedQ || undefined,
     category: activeCategory,
   });
 
-  const { data: recommended } = useRecommendations();
+  const { data: recommended, refetch: refetchRec, isRefetching: isRefetchingRec } = useRecommendations();
+
+  const handleRefresh = () => { refetchEvents(); refetchRec(); };
 
   const handleSearchChange = (text: string) => {
     setSearch(text);
@@ -52,31 +54,25 @@ export default function DiscoverScreen() {
         />
       </View>
 
-      <FlatList
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        data={CATEGORIES}
-        keyExtractor={item => item.label}
-        contentContainerStyle={styles.categoryList}
-        renderItem={({ item }) => (
+      <View style={styles.categoryRow}>
+        {CATEGORIES.map(item => (
           <TouchableOpacity
-            style={[
-              styles.chip,
-              activeCategory === item.value && styles.chipActive,
-            ]}
+            key={item.label}
+            style={[styles.chip, activeCategory === item.value && styles.chipActive]}
             onPress={() => setActiveCategory(item.value)}
+            activeOpacity={0.8}
           >
             <Text style={[styles.chipText, activeCategory === item.value && styles.chipTextActive]}>
               {item.label}
             </Text>
           </TouchableOpacity>
-        )}
-      />
+        ))}
+      </View>
 
       <FlatList
         data={events}
         keyExtractor={item => item.id}
-        refreshControl={<RefreshControl refreshing={isLoading} onRefresh={refetch} />}
+        refreshControl={<RefreshControl refreshing={isLoading || isRefetching || isRefetchingRec} onRefresh={handleRefresh} />}
         contentContainerStyle={styles.list}
         ListHeaderComponent={
           showRecommended ? (
@@ -126,18 +122,25 @@ const styles = StyleSheet.create({
     borderColor: '#E5E7EB',
     color: '#111827',
   },
-  categoryList: { paddingHorizontal: 16, paddingVertical: 6, gap: 8 },
-  chip: {
+  categoryRow: {
+    flexDirection: 'row',
     paddingHorizontal: 16,
-    paddingVertical: 8,
+    paddingVertical: 6,
+    gap: 8,
+  },
+  chip: {
+    flex: 1,
+    paddingVertical: 9,
     borderRadius: 20,
     backgroundColor: '#FFFFFF',
     borderWidth: 1,
     borderColor: '#E5E7EB',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  chipActive: { backgroundColor: '#6366F1', borderColor: '#6366F1' },
-  chipText: { fontSize: 14, color: '#6B7280', fontWeight: '500' },
-  chipTextActive: { color: '#FFFFFF', fontWeight: '700' },
+  chipActive: { backgroundColor: '#1D63ED', borderColor: '#1D63ED' },
+  chipText: { fontSize: 13, color: '#6B7280', fontWeight: '600' },
+  chipTextActive: { color: '#FFFFFF' },
   list: { padding: 16 },
   sectionTitle: { fontSize: 17, fontWeight: '700', color: '#111827', marginBottom: 12 },
   empty: { textAlign: 'center', color: '#9CA3AF', marginTop: 60, fontSize: 15 },

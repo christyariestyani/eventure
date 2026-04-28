@@ -31,6 +31,16 @@ export function useInitiatePayment() {
   });
 }
 
+export function useBookingDetail(bookingId: string | undefined) {
+  return useQuery({
+    queryKey: ['bookings', bookingId],
+    queryFn: () =>
+      api.get(`/bookings/${bookingId}`).then(res => res.data.data),
+    enabled: !!bookingId,
+    staleTime: 0,
+  });
+}
+
 export function useBookings(page = 1) {
   return useQuery({
     queryKey: ['bookings', page],

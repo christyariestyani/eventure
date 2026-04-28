@@ -46,8 +46,8 @@ export default function RegisterScreen() {
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
-          <TouchableOpacity style={styles.backBtn} onPress={() => router.back()}>
-            <Text style={styles.backText}>← Kembali</Text>
+          <TouchableOpacity style={styles.backBtn} onPress={() => router.back()} hitSlop={16}>
+            <Text style={styles.backText}>‹</Text>
           </TouchableOpacity>
 
           <Text style={styles.title}>Buat Akun</Text>
@@ -103,8 +103,8 @@ export default function RegisterScreen() {
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: '#FFFFFF' },
   container: { padding: 24, paddingBottom: 48 },
-  backBtn: { marginBottom: 24 },
-  backText: { fontSize: 15, color: '#6366F1', fontWeight: '600' },
+  backBtn: { marginBottom: 24, alignSelf: 'flex-start' },
+  backText: { fontSize: 32, color: '#1D63ED', fontWeight: '300', lineHeight: 36 },
   title: { fontSize: 28, fontWeight: '800', color: '#111827', marginBottom: 6 },
   subtitle: { fontSize: 14, color: '#6B7280', marginBottom: 28 },
   form: { gap: 16 },

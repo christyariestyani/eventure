@@ -67,8 +67,15 @@ export default function BookingsScreen() {
           const ticketItem = item.booking_items?.find((i: any) => i.item_type === 'ticket');
           const event = ticketItem?.ticket_tiers?.events;
 
+          const hotelItem = item.booking_items?.find((i: any) => i.item_type === 'accommodation');
+          const hasAddons = !!hotelItem || !!(item as any).notes?.startsWith('transport:');
+
           return (
-            <TouchableOpacity style={styles.card} activeOpacity={0.85}>
+            <TouchableOpacity
+              style={styles.card}
+              activeOpacity={0.85}
+              onPress={() => router.push(`/booking/${item.id}`)}
+            >
               <View style={styles.cardTop}>
                 <Text style={styles.bookingNum}>{item.booking_number}</Text>
                 <View style={[styles.badge, { backgroundColor: status.bg }]}>
@@ -87,13 +94,25 @@ export default function BookingsScreen() {
                 <Text style={styles.eventTitle}>Booking #{item.booking_number}</Text>
               )}
 
+              {hasAddons && (
+                <View style={styles.addonRow}>
+                  {hotelItem && <Text style={styles.addonChip}>🏨 Hotel</Text>}
+                  {(item as any).notes?.startsWith('transport:') && (
+                    <Text style={styles.addonChip}>🚌 Transport</Text>
+                  )}
+                </View>
+              )}
+
               <View style={styles.cardBottom}>
                 <Text style={styles.totalLabel}>Total Bayar</Text>
-                <Text style={styles.totalAmount}>
-                  {new Intl.NumberFormat('id-ID', {
-                    style: 'currency', currency: 'IDR', maximumFractionDigits: 0,
-                  }).format(item.total_amount)}
-                </Text>
+                <View style={{ alignItems: 'flex-end' }}>
+                  <Text style={styles.totalAmount}>
+                    {new Intl.NumberFormat('id-ID', {
+                      style: 'currency', currency: 'IDR', maximumFractionDigits: 0,
+                    }).format(item.total_amount)}
+                  </Text>
+                  <Text style={styles.tapHint}>Tap untuk detail →</Text>
+                </View>
               </View>
             </TouchableOpacity>
           );
@@ -119,7 +138,7 @@ const styles = StyleSheet.create({
   emptyTitle: { fontSize: 18, fontWeight: '700', color: '#111827', marginBottom: 8 },
   emptyText: { fontSize: 14, color: '#9CA3AF', textAlign: 'center', marginBottom: 24 },
   loginBtn: {
-    backgroundColor: '#6366F1',
+    backgroundColor: '#1D63ED',
     paddingVertical: 12,
     paddingHorizontal: 32,
     borderRadius: 12,
@@ -153,4 +172,10 @@ const styles = StyleSheet.create({
   },
   totalLabel: { fontSize: 13, color: '#6B7280' },
   totalAmount: { fontSize: 15, fontWeight: '700', color: '#111827' },
+  tapHint: { fontSize: 11, color: '#9CA3AF', marginTop: 2 },
+  addonRow: { flexDirection: 'row', gap: 6, marginTop: 2 },
+  addonChip: {
+    fontSize: 11, color: '#1D63ED', backgroundColor: '#EFF6FF',
+    paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6, fontWeight: '600',
+  },
 });

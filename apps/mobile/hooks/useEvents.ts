@@ -42,7 +42,7 @@ export function useEvents(params: UseEventsParams = {}) {
     queryKey: ['events', params],
     queryFn: () =>
       api.get('/events', { params }).then(res => res.data.data as ApiEvent[]),
-    staleTime: 2 * 60 * 1000,
+    staleTime: 30 * 1000, // 30 detik
     placeholderData: prev => prev,
   });
 
@@ -59,16 +59,17 @@ export function useEvent(id: string) {
   return useQuery({
     queryKey: ['event', id],
     queryFn: () => api.get(`/events/${id}`).then(res => res.data.data as ApiEvent),
-    staleTime: 5 * 60 * 1000,
+    staleTime: 30 * 1000,
     enabled: !!id,
   });
 }
 
 export function useRecommendations() {
-  return useQuery({
+  const query = useQuery({
     queryKey: ['recommendations'],
     queryFn: () =>
       api.get('/recommendations').then(res => res.data.data as ApiEvent[]),
-    staleTime: 5 * 60 * 1000,
+    staleTime: 30 * 1000,
   });
+  return { data: query.data, refetch: query.refetch, isRefetching: query.isRefetching };
 }

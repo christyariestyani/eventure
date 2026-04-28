@@ -1,9 +1,9 @@
 import React from 'react';
 import {
-  View, Text, Image, ScrollView,
-  StyleSheet, ActivityIndicator, SafeAreaView,
+  View, Text, Image, ScrollView, TouchableOpacity,
+  StyleSheet, ActivityIndicator, SafeAreaView, Alert,
 } from 'react-native';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
 import { format } from 'date-fns';
 import { id as idLocale } from 'date-fns/locale';
 import { useEvent } from '../../hooks/useEvents';
@@ -34,8 +34,18 @@ export default function EventDetailScreen() {
 
   const handleSelectTier = async (tierId: string, quantity: number) => {
     try {
+      const tier = event!.ticket_tiers.find(t => t.id === tierId);
       const booking = await createBooking.mutateAsync({ ticket_tier_id: tierId, quantity });
-      router.push(`/booking/${booking.booking_id}/checkout`);
+      router.push({
+        pathname: `/booking/${booking.booking_id}/checkout` as any,
+        params: {
+          baseAmount: String((tier?.price ?? 0) * quantity),
+          eventTitle: event!.title,
+          tierName: tier?.name ?? '',
+          qty: String(quantity),
+          city: event!.venue.city,
+        },
+      });
     } catch (err: any) {
       const code = err?.response?.data?.error;
       if (code === 'QUOTA_INSUFFICIENT') {
@@ -48,6 +58,17 @@ export default function EventDetailScreen() {
 
   return (
     <SafeAreaView style={styles.safe}>
+      <Stack.Screen options={{
+        headerShown: true,
+        title: '',
+        headerBackVisible: false,
+        headerShadowVisible: false,
+        headerLeft: () => (
+          <TouchableOpacity onPress={() => router.back()} hitSlop={16}>
+            <Text style={styles.backChevron}>‹</Text>
+          </TouchableOpacity>
+        ),
+      }} />
       <ScrollView showsVerticalScrollIndicator={false}>
         {event.banner_url ? (
           <Image source={{ uri: event.banner_url }} style={styles.banner} resizeMode="cover" />
@@ -84,7 +105,11 @@ export default function EventDetailScreen() {
           ) : null}
 
           <View style={styles.section}>
-            <TierSelector tiers={event.ticket_tiers} onSelect={handleSelectTier} />
+            <TierSelector
+              tiers={event.ticket_tiers}
+              onSelect={handleSelectTier}
+              soldOut={!event.is_available}
+            />
           </View>
         </View>
       </ScrollView>
@@ -115,4 +140,5 @@ const styles = StyleSheet.create({
   section: { marginTop: 20 },
   sectionTitle: { fontSize: 17, fontWeight: '700', color: '#111827', marginBottom: 10 },
   description: { fontSize: 14, color: '#6B7280', lineHeight: 22 },
+  backChevron: { fontSize: 32, color: '#1D63ED', fontWeight: '300', lineHeight: 36, marginLeft: 4 },
 });

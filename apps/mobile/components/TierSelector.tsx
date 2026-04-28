@@ -14,9 +14,10 @@ interface Tier {
 interface Props {
   tiers: Tier[];
   onSelect: (tierId: string, quantity: number) => void;
+  soldOut?: boolean;
 }
 
-export default function TierSelector({ tiers, onSelect }: Props) {
+export default function TierSelector({ tiers, onSelect, soldOut = false }: Props) {
   const [selectedTierId, setSelectedTierId] = useState<string | null>(null);
   const [quantity, setQuantity] = useState(1);
 
@@ -33,8 +34,18 @@ export default function TierSelector({ tiers, onSelect }: Props) {
     <View style={styles.container}>
       <Text style={styles.sectionTitle}>Pilih Tiket</Text>
 
+      {soldOut && (
+        <View style={styles.soldOutBanner}>
+          <Text style={styles.soldOutIcon}>🎟️</Text>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.soldOutTitle}>Tiket Sudah Habis</Text>
+            <Text style={styles.soldOutDesc}>Semua tiket untuk event ini sudah terjual</Text>
+          </View>
+        </View>
+      )}
+
       {tiers.map(tier => {
-        const isAvailable = tier.status === 'available' && tier.available_quota > 0;
+        const isAvailable = !soldOut && tier.status === 'available' && tier.available_quota > 0;
         const isSelected = tier.id === selectedTierId;
 
         return (
@@ -75,7 +86,7 @@ export default function TierSelector({ tiers, onSelect }: Props) {
         );
       })}
 
-      {selectedTier && (
+      {!soldOut && selectedTier && (
         <View style={styles.quantityRow}>
           <Text style={styles.quantityLabel}>Jumlah Tiket</Text>
           <View style={styles.quantityControl}>
@@ -104,18 +115,20 @@ export default function TierSelector({ tiers, onSelect }: Props) {
         </View>
       )}
 
-      <TouchableOpacity
-        style={[styles.ctaButton, !selectedTierId && styles.ctaButtonDisabled]}
-        onPress={() => selectedTierId && onSelect(selectedTierId, quantity)}
-        disabled={!selectedTierId}
-        activeOpacity={0.85}
-      >
-        <Text style={styles.ctaText}>
-          {selectedTier
-            ? `Pesan — ${formatPrice(selectedTier.price * quantity)}`
-            : 'Pilih Tiket'}
-        </Text>
-      </TouchableOpacity>
+      {!soldOut && (
+        <TouchableOpacity
+          style={[styles.ctaButton, !selectedTierId && styles.ctaButtonDisabled]}
+          onPress={() => selectedTierId && onSelect(selectedTierId, quantity)}
+          disabled={!selectedTierId}
+          activeOpacity={0.85}
+        >
+          <Text style={styles.ctaText}>
+            {selectedTier
+              ? `Pesan — ${formatPrice(selectedTier.price * quantity)}`
+              : 'Pilih Tiket'}
+          </Text>
+        </TouchableOpacity>
+      )}
     </View>
   );
 }
@@ -166,4 +179,15 @@ const styles = StyleSheet.create({
   },
   ctaButtonDisabled: { backgroundColor: '#C7D2FE' },
   ctaText: { color: '#FFFFFF', fontSize: 16, fontWeight: '700' },
+  soldOutBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    backgroundColor: '#FEE2E2',
+    borderRadius: 12,
+    padding: 14,
+  },
+  soldOutIcon: { fontSize: 24 },
+  soldOutTitle: { fontSize: 15, fontWeight: '700', color: '#DC2626' },
+  soldOutDesc: { fontSize: 12, color: '#EF4444', marginTop: 2 },
 });

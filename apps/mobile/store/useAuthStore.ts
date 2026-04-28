@@ -25,8 +25,9 @@ export const useAuthStore = create<AuthState>((set) => ({
 
   login: async (email, password) => {
     const { data } = await api.post('/auth/login', { email, password });
-    await SecureStore.setItemAsync('auth_token', data.token);
-    set({ user: data.user, token: data.token });
+    const { user, token } = data.data;
+    await SecureStore.setItemAsync('auth_token', token);
+    set({ user, token });
   },
 
   logout: async () => {
@@ -39,7 +40,7 @@ export const useAuthStore = create<AuthState>((set) => ({
       const token = await SecureStore.getItemAsync('auth_token');
       if (!token) return;
       const { data } = await api.get('/auth/me');
-      set({ user: data.user, token });
+      set({ user: data.data, token });
     } catch {
       await SecureStore.deleteItemAsync('auth_token');
     } finally {
