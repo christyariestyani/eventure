@@ -44,6 +44,8 @@ export default function EventDetailScreen() {
           tierName: tier?.name ?? '',
           qty: String(quantity),
           city: event!.venue.city,
+          venueLat: String(event!.venue.latitude),
+          venueLng: String(event!.venue.longitude),
         },
       });
     } catch (err: any) {

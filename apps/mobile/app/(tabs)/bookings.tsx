@@ -9,13 +9,15 @@ import { id as idLocale } from 'date-fns/locale';
 import { useBookings } from '../../hooks/useBooking';
 import { useAuthStore } from '../../store/useAuthStore';
 
+const P = '#5B8EF0';
+
 const STATUS_LABEL: Record<string, { label: string; color: string; bg: string }> = {
-  pending: { label: 'Menunggu Bayar', color: '#D97706', bg: '#FEF3C7' },
+  pending:          { label: 'Menunggu Bayar', color: '#D97706', bg: '#FEF3C7' },
   awaiting_payment: { label: 'Menunggu Bayar', color: '#D97706', bg: '#FEF3C7' },
-  confirmed: { label: 'Dikonfirmasi', color: '#059669', bg: '#D1FAE5' },
-  completed: { label: 'Selesai', color: '#6B7280', bg: '#F3F4F6' },
-  cancelled: { label: 'Dibatalkan', color: '#DC2626', bg: '#FEE2E2' },
-  refunded: { label: 'Direfund', color: '#7C3AED', bg: '#EDE9FE' },
+  confirmed:        { label: 'Dikonfirmasi',   color: '#059669', bg: '#D1FAE5' },
+  completed:        { label: 'Selesai',         color: '#6B7280', bg: '#F3F4F6' },
+  cancelled:        { label: 'Dibatalkan',      color: '#DC2626', bg: '#FEE2E2' },
+  refunded:         { label: 'Direfund',        color: '#7C3AED', bg: '#EDE9FE' },
 };
 
 export default function BookingsScreen() {
@@ -26,14 +28,15 @@ export default function BookingsScreen() {
   if (!user) {
     return (
       <SafeAreaView style={styles.safe}>
+        <View style={styles.header}>
+          <Text style={styles.headerTitle}>Tiket Saya</Text>
+        </View>
         <View style={styles.center}>
+          <Text style={styles.emptyIcon}>🎫</Text>
           <Text style={styles.emptyTitle}>Belum Login</Text>
           <Text style={styles.emptyText}>Login untuk melihat tiket kamu</Text>
-          <TouchableOpacity
-            style={styles.loginBtn}
-            onPress={() => router.push('/(auth)/login')}
-          >
-            <Text style={styles.loginBtnText}>Login</Text>
+          <TouchableOpacity style={styles.loginBtn} onPress={() => router.push('/(auth)/login')}>
+            <Text style={styles.loginBtnText}>Login / Daftar</Text>
           </TouchableOpacity>
         </View>
       </SafeAreaView>
@@ -43,8 +46,11 @@ export default function BookingsScreen() {
   if (isLoading) {
     return (
       <SafeAreaView style={styles.safe}>
+        <View style={styles.header}>
+          <Text style={styles.headerTitle}>Tiket Saya</Text>
+        </View>
         <View style={styles.center}>
-          <ActivityIndicator color="#6366F1" />
+          <ActivityIndicator color={P} size="large" />
         </View>
       </SafeAreaView>
     );
@@ -55,7 +61,8 @@ export default function BookingsScreen() {
   return (
     <SafeAreaView style={styles.safe}>
       <View style={styles.header}>
-        <Text style={styles.title}>Tiket Saya</Text>
+        <Text style={styles.headerTitle}>Tiket Saya</Text>
+        <Text style={styles.headerSub}>{bookings.length} pemesanan</Text>
       </View>
 
       <FlatList
@@ -66,52 +73,71 @@ export default function BookingsScreen() {
           const status = STATUS_LABEL[item.status] ?? STATUS_LABEL.pending;
           const ticketItem = item.booking_items?.find((i: any) => i.item_type === 'ticket');
           const event = ticketItem?.ticket_tiers?.events;
-
           const hotelItem = item.booking_items?.find((i: any) => i.item_type === 'accommodation');
-          const hasAddons = !!hotelItem || !!(item as any).notes?.startsWith('transport:');
+          const transportItem = item.booking_items?.find((i: any) => i.item_type === 'transport');
 
           return (
             <TouchableOpacity
               style={styles.card}
-              activeOpacity={0.85}
+              activeOpacity={0.88}
               onPress={() => router.push(`/booking/${item.id}`)}
             >
-              <View style={styles.cardTop}>
-                <Text style={styles.bookingNum}>{item.booking_number}</Text>
-                <View style={[styles.badge, { backgroundColor: status.bg }]}>
-                  <Text style={[styles.badgeText, { color: status.color }]}>{status.label}</Text>
+              {/* Status strip */}
+              <View style={[styles.statusStrip, { backgroundColor: status.bg }]}>
+                <View style={styles.statusDot}>
+                  <View style={[styles.dot, { backgroundColor: status.color }]} />
+                  <Text style={[styles.statusText, { color: status.color }]}>{status.label}</Text>
                 </View>
+                <Text style={styles.bookingNum}>{item.booking_number}</Text>
               </View>
 
-              {event ? (
-                <>
-                  <Text style={styles.eventTitle} numberOfLines={1}>{event.title}</Text>
-                  <Text style={styles.eventDate}>
-                    {format(new Date(event.start_at), 'EEE, d MMM yyyy', { locale: idLocale })}
-                  </Text>
-                </>
-              ) : (
-                <Text style={styles.eventTitle}>Booking #{item.booking_number}</Text>
-              )}
-
-              {hasAddons && (
-                <View style={styles.addonRow}>
-                  {hotelItem && <Text style={styles.addonChip}>🏨 Hotel</Text>}
-                  {(item as any).notes?.startsWith('transport:') && (
-                    <Text style={styles.addonChip}>🚌 Transport</Text>
-                  )}
+              <View style={styles.cardBody}>
+                {/* Event info */}
+                <View style={styles.eventRow}>
+                  <View style={styles.eventIcon}>
+                    <Text style={styles.eventIconText}>🎫</Text>
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.eventTitle} numberOfLines={2}>
+                      {event?.title ?? `Booking #${item.booking_number}`}
+                    </Text>
+                    {event?.start_at && (
+                      <Text style={styles.eventDate}>
+                        {format(new Date(event.start_at), 'EEE, d MMM yyyy', { locale: idLocale })}
+                      </Text>
+                    )}
+                  </View>
                 </View>
-              )}
 
-              <View style={styles.cardBottom}>
-                <Text style={styles.totalLabel}>Total Bayar</Text>
-                <View style={{ alignItems: 'flex-end' }}>
-                  <Text style={styles.totalAmount}>
-                    {new Intl.NumberFormat('id-ID', {
-                      style: 'currency', currency: 'IDR', maximumFractionDigits: 0,
-                    }).format(item.total_amount)}
-                  </Text>
-                  <Text style={styles.tapHint}>Tap untuk detail →</Text>
+                {/* Add-ons */}
+                {(hotelItem || transportItem) && (
+                  <View style={styles.addonRow}>
+                    {hotelItem && (
+                      <View style={styles.addonChip}>
+                        <Text style={styles.addonText}>🏨 Hotel</Text>
+                      </View>
+                    )}
+                    {transportItem && (
+                      <View style={styles.addonChip}>
+                        <Text style={styles.addonText}>🚌 Transport</Text>
+                      </View>
+                    )}
+                  </View>
+                )}
+
+                {/* Footer */}
+                <View style={styles.cardFooter}>
+                  <View>
+                    <Text style={styles.totalLabel}>Total Pembayaran</Text>
+                    <Text style={styles.totalAmount}>
+                      {new Intl.NumberFormat('id-ID', {
+                        style: 'currency', currency: 'IDR', maximumFractionDigits: 0,
+                      }).format(item.total_amount)}
+                    </Text>
+                  </View>
+                  <View style={styles.detailBtn}>
+                    <Text style={styles.detailBtnText}>Detail →</Text>
+                  </View>
                 </View>
               </View>
             </TouchableOpacity>
@@ -119,8 +145,12 @@ export default function BookingsScreen() {
         }}
         ListEmptyComponent={
           <View style={styles.center}>
+            <Text style={styles.emptyIcon}>🎫</Text>
             <Text style={styles.emptyTitle}>Belum ada tiket</Text>
             <Text style={styles.emptyText}>Temukan event seru dan pesan sekarang!</Text>
+            <TouchableOpacity style={styles.loginBtn} onPress={() => router.push('/(tabs)')}>
+              <Text style={styles.loginBtnText}>Jelajahi Event</Text>
+            </TouchableOpacity>
           </View>
         }
         ItemSeparatorComponent={() => <View style={{ height: 12 }} />}
@@ -130,52 +160,66 @@ export default function BookingsScreen() {
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: '#F8F9FA' },
-  header: { paddingHorizontal: 16, paddingTop: 16, paddingBottom: 4 },
-  title: { fontSize: 22, fontWeight: '800', color: '#111827' },
+  safe: { flex: 1, backgroundColor: '#F8FAFD' },
+
+  header: {
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: 20,
+    paddingTop: 16,
+    paddingBottom: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#EFF2F9',
+  },
+  headerTitle: { fontSize: 20, fontWeight: '800', color: '#1E293B' },
+  headerSub: { fontSize: 13, color: '#94A3B8', marginTop: 2 },
+
   list: { padding: 16, flexGrow: 1 },
-  center: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 32 },
-  emptyTitle: { fontSize: 18, fontWeight: '700', color: '#111827', marginBottom: 8 },
-  emptyText: { fontSize: 14, color: '#9CA3AF', textAlign: 'center', marginBottom: 24 },
+  center: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 32, gap: 10 },
+  emptyIcon: { fontSize: 48, marginBottom: 4 },
+  emptyTitle: { fontSize: 17, fontWeight: '700', color: '#1E293B' },
+  emptyText: { fontSize: 14, color: '#94A3B8', textAlign: 'center' },
   loginBtn: {
-    backgroundColor: '#1D63ED',
-    paddingVertical: 12,
-    paddingHorizontal: 32,
-    borderRadius: 12,
+    backgroundColor: P, paddingVertical: 12, paddingHorizontal: 32,
+    borderRadius: 12, marginTop: 8,
   },
   loginBtnText: { color: '#FFFFFF', fontWeight: '700', fontSize: 15 },
+
+  // Card
   card: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    padding: 16,
-    gap: 6,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    elevation: 2,
+    backgroundColor: '#FFFFFF', borderRadius: 16, overflow: 'hidden',
+    shadowColor: '#5B8EF0', shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08, shadowRadius: 12, elevation: 3,
   },
-  cardTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  bookingNum: { fontSize: 12, color: '#9CA3AF', fontWeight: '500' },
-  badge: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 8 },
-  badgeText: { fontSize: 11, fontWeight: '700' },
-  eventTitle: { fontSize: 16, fontWeight: '700', color: '#111827' },
-  eventDate: { fontSize: 13, color: '#6B7280' },
-  cardBottom: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginTop: 4,
-    paddingTop: 10,
-    borderTopWidth: 1,
-    borderTopColor: '#F3F4F6',
+  statusStrip: {
+    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
+    paddingHorizontal: 14, paddingVertical: 9,
   },
-  totalLabel: { fontSize: 13, color: '#6B7280' },
-  totalAmount: { fontSize: 15, fontWeight: '700', color: '#111827' },
-  tapHint: { fontSize: 11, color: '#9CA3AF', marginTop: 2 },
-  addonRow: { flexDirection: 'row', gap: 6, marginTop: 2 },
+  statusDot: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  dot: { width: 6, height: 6, borderRadius: 3 },
+  statusText: { fontSize: 12, fontWeight: '700' },
+  bookingNum: { fontSize: 11, color: '#94A3B8', fontWeight: '500' },
+  cardBody: { padding: 14, gap: 10 },
+  eventRow: { flexDirection: 'row', gap: 12, alignItems: 'flex-start' },
+  eventIcon: {
+    width: 46, height: 46, borderRadius: 12,
+    backgroundColor: '#EEF3FF', alignItems: 'center', justifyContent: 'center',
+  },
+  eventIconText: { fontSize: 22 },
+  eventTitle: { fontSize: 15, fontWeight: '700', color: '#1E293B', lineHeight: 21 },
+  eventDate: { fontSize: 12, color: '#94A3B8', marginTop: 3 },
+  addonRow: { flexDirection: 'row', gap: 8 },
   addonChip: {
-    fontSize: 11, color: '#1D63ED', backgroundColor: '#EFF6FF',
-    paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6, fontWeight: '600',
+    backgroundColor: '#EEF3FF', paddingHorizontal: 10, paddingVertical: 5, borderRadius: 8,
   },
+  addonText: { fontSize: 12, color: P, fontWeight: '600' },
+  cardFooter: {
+    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
+    paddingTop: 10, borderTopWidth: 1, borderTopColor: '#F1F5F9',
+  },
+  totalLabel: { fontSize: 11, color: '#94A3B8' },
+  totalAmount: { fontSize: 16, fontWeight: '800', color: '#1E293B', marginTop: 1 },
+  detailBtn: {
+    backgroundColor: '#EEF3FF', paddingHorizontal: 14, paddingVertical: 8, borderRadius: 10,
+  },
+  detailBtnText: { fontSize: 13, color: P, fontWeight: '700' },
 });
