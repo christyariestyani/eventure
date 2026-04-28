@@ -21,7 +21,7 @@ export class RecommendationsService {
       supabase
         .from('events')
         .select('*, venue:venues(city), ticket_tiers(price, available_quota, status)')
-        .eq('status', 'published')
+        .in('status', ['published', 'sold_out'])
         .gte('start_at', new Date().toISOString())
         .limit(80),
     ]);
@@ -33,7 +33,7 @@ export class RecommendationsService {
       .map(event => ({ event, score: this.score(event, signals) }))
       .sort((a, b) => b.score - a.score)
       .slice(0, limit)
-      .map(s => s.event);
+      .map(s => this.formatEvent(s.event));
 
     return scored;
   }
@@ -41,8 +41,8 @@ export class RecommendationsService {
   async getTrending(limit = 10) {
     const { data } = await supabase
       .from('events')
-      .select('*, venue:venues(city), ticket_tiers(price, total_quota, sold_quota, available_quota)')
-      .eq('status', 'published')
+      .select('*, venue:venues(city), ticket_tiers(price, total_quota, sold_quota, available_quota, status)')
+      .in('status', ['published', 'sold_out'])
       .gte('start_at', new Date().toISOString())
       .order('start_at', { ascending: true })
       .limit(50);
@@ -52,11 +52,25 @@ export class RecommendationsService {
         const totalQuota = event.ticket_tiers.reduce((s: number, t: any) => s + t.total_quota, 0);
         const soldQuota = event.ticket_tiers.reduce((s: number, t: any) => s + t.sold_quota, 0);
         const soldPct = totalQuota > 0 ? soldQuota / totalQuota : 0;
-        return { event, soldPct };
+        return { event: this.formatEvent(event), soldPct };
       })
       .sort((a, b) => b.soldPct - a.soldPct)
       .slice(0, limit)
       .map(s => s.event);
+  }
+
+  private formatEvent(event: any) {
+    const tiers = event.ticket_tiers ?? [];
+    const availableTiers = tiers.filter((t: any) => t.status === 'available');
+    const minPrice = availableTiers.length > 0
+      ? Math.min(...availableTiers.map((t: any) => t.price))
+      : null;
+    const hasQuota = availableTiers.some((t: any) => (t.available_quota ?? 0) > 0);
+    return {
+      ...event,
+      min_price: minPrice,
+      is_available: event.status !== 'sold_out' && hasQuota,
+    };
   }
 
   private buildSignals(user: any, bookings: any): UserSignals {

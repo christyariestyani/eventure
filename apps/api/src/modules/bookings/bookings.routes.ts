@@ -27,6 +27,23 @@ export async function bookingsRoutes(fastify: FastifyInstance) {
     }
   });
 
+  // PATCH /api/v1/bookings/:id/addons — tambah hotel/transport ke booking
+  fastify.patch('/:id/addons', { preHandler: requireAuth }, async (request, reply) => {
+    const user = (request as any).user as { id: string };
+    const { id } = request.params as { id: string };
+    const body = request.body as { hotel_id?: string; transport_price?: number };
+
+    try {
+      const result = await service.addAddons(id, user.id, body);
+      return reply.send({ data: result });
+    } catch (err) {
+      if (err instanceof AppError) {
+        return reply.status(err.statusCode).send({ error: err.code, message: err.message });
+      }
+      throw err;
+    }
+  });
+
   // POST /api/v1/bookings/:id/pay — initiate Midtrans payment
   fastify.post('/:id/pay', { preHandler: requireAuth }, async (request, reply) => {
     const user = (request as any).user as { id: string };
@@ -34,6 +51,22 @@ export async function bookingsRoutes(fastify: FastifyInstance) {
 
     try {
       const result = await service.initiatePayment(id, user.id);
+      return reply.send({ data: result });
+    } catch (err) {
+      if (err instanceof AppError) {
+        return reply.status(err.statusCode).send({ error: err.code, message: err.message });
+      }
+      throw err;
+    }
+  });
+
+  // GET /api/v1/bookings/:id — booking detail
+  fastify.get('/:id', { preHandler: requireAuth }, async (request, reply) => {
+    const user = (request as any).user as { id: string };
+    const { id } = request.params as { id: string };
+
+    try {
+      const result = await service.getBookingDetail(id, user.id);
       return reply.send({ data: result });
     } catch (err) {
       if (err instanceof AppError) {

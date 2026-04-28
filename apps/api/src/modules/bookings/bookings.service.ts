@@ -5,7 +5,7 @@ import { createSnapTransaction } from '../../lib/midtrans';
 import { generateBookingNumber, generateQRToken, bookingExpiresAt } from '../../utils';
 import type { CreateBookingDTO } from './bookings.schema';
 
-const PLATFORM_FEE_RATE = 0.03; // 3%
+const PLATFORM_FEE_RATE = 0.03;
 
 export class BookingsService {
   async createBooking(userId: string, payload: CreateBookingDTO) {
@@ -23,7 +23,38 @@ export class BookingsService {
       throw new AppError(`MAX_PER_USER_EXCEEDED`, 400, `Max ${tier.max_per_user} tiket per user`);
     }
 
-    // Atomic lock via Redis
+    // Return existing pending booking for the same tier if still valid
+    const { data: pendingBookings } = await supabase
+      .from('bookings')
+      .select('id, booking_number, total_amount, platform_fee, expires_at')
+      .eq('user_id', userId)
+      .eq('status', 'pending')
+      .gt('expires_at', new Date().toISOString());
+
+    if (pendingBookings && pendingBookings.length > 0) {
+      const { data: existingItem } = await supabase
+        .from('booking_items')
+        .select('booking_id')
+        .eq('ticket_tier_id', ticket_tier_id)
+        .eq('item_type', 'ticket')
+        .in('booking_id', pendingBookings.map(b => b.id))
+        .limit(1)
+        .maybeSingle();
+
+      if (existingItem) {
+        const booking = pendingBookings.find(b => b.id === existingItem.booking_id)!;
+        const ticketSubtotal = tier.price * quantity;
+        return {
+          booking_id: booking.id,
+          booking_number: booking.booking_number,
+          total_amount: booking.total_amount,
+          platform_fee: booking.platform_fee,
+          expires_at: new Date(booking.expires_at),
+          items: { ticket_subtotal: ticketSubtotal, accommodation_subtotal: 0 },
+        };
+      }
+    }
+
     await lockTickets(ticket_tier_id, quantity, 'temp');
 
     try {
@@ -94,13 +125,11 @@ export class BookingsService {
 
       await supabase.from('booking_items').insert(items);
 
-      // Rename temp lock ke booking ID
       const { redis } = await import('../../lib/redis');
-      const { LOCK_KEY, QUOTA_KEY } = await import('../../lib/redis');
+      const { LOCK_KEY } = await import('../../lib/redis');
       await redis.rename(LOCK_KEY(ticket_tier_id, 'temp'), LOCK_KEY(ticket_tier_id, booking.id));
       await redis.expire(LOCK_KEY(ticket_tier_id, booking.id), 900);
 
-      // Update reserved quota (non-blocking)
       supabase.rpc('increment_reserved_quota', {
         p_tier_id: ticket_tier_id,
         p_quantity: quantity,
@@ -112,15 +141,76 @@ export class BookingsService {
         total_amount: totalAmount,
         platform_fee: platformFee,
         expires_at: expiresAt,
-        items: {
-          ticket_subtotal: ticketSubtotal,
-          accommodation_subtotal: accommodationSubtotal,
-        },
+        items: { ticket_subtotal: ticketSubtotal, accommodation_subtotal: accommodationSubtotal },
       };
     } catch (err) {
       await releaseLock(ticket_tier_id, 'temp');
       throw err;
     }
+  }
+
+  async addAddons(
+    bookingId: string,
+    userId: string,
+    addons: { hotel_id?: string; transport_price?: number }
+  ) {
+    const { data: booking } = await supabase
+      .from('bookings')
+      .select('id, status, total_amount, platform_fee')
+      .eq('id', bookingId)
+      .eq('user_id', userId)
+      .single();
+
+    if (!booking) throw new AppError('BOOKING_NOT_FOUND', 404);
+    if (!['pending', 'awaiting_payment'].includes(booking.status)) {
+      throw new AppError('BOOKING_NOT_PAYABLE', 400);
+    }
+
+    let addonTotal = 0;
+
+    if (addons.hotel_id) {
+      const { data: hotel } = await supabase
+        .from('accommodations')
+        .select('base_price, name')
+        .eq('id', addons.hotel_id)
+        .single();
+
+      if (hotel) {
+        addonTotal += hotel.base_price;
+        await supabase.from('booking_items').insert({
+          booking_id: bookingId,
+          item_type: 'accommodation',
+          accommodation_id: addons.hotel_id,
+          quantity: 1,
+          unit_price: hotel.base_price,
+          subtotal: hotel.base_price,
+          metadata: { name: hotel.name },
+        });
+      }
+    }
+
+    if (addons.transport_price && addons.transport_price > 0) {
+      addonTotal += addons.transport_price;
+      // Simpan sebagai booking_item dengan item_type transport
+      await supabase.from('booking_items').insert({
+        booking_id: bookingId,
+        item_type: 'transport',
+        quantity: 1,
+        unit_price: addons.transport_price,
+        subtotal: addons.transport_price,
+        metadata: { transport_price: addons.transport_price },
+      });
+    }
+
+    if (addonTotal > 0) {
+      const newTotal = booking.total_amount + addonTotal;
+      await supabase
+        .from('bookings')
+        .update({ total_amount: newTotal })
+        .eq('id', bookingId);
+    }
+
+    return { ok: true };
   }
 
   async initiatePayment(bookingId: string, userId: string) {
@@ -139,18 +229,51 @@ export class BookingsService {
       throw new AppError('BOOKING_EXPIRED', 410);
     }
 
-    const paymentToken = await createSnapTransaction({
-      booking_number: booking.booking_number,
-      total_amount: booking.total_amount,
-      user: booking.users,
-    });
+    const isDevMode = !process.env.MIDTRANS_SERVER_KEY ||
+      process.env.MIDTRANS_SERVER_KEY.includes('xxxx');
 
-    await supabase
-      .from('bookings')
-      .update({ status: 'awaiting_payment' })
-      .eq('id', bookingId);
+    let paymentToken: string;
+
+    if (isDevMode) {
+      paymentToken = `dev-token-${booking.booking_number}`;
+      await this.confirmBookingAndIssueTickets(booking.booking_number);
+      await supabase
+        .from('bookings')
+        .update({ status: 'confirmed', paid_at: new Date().toISOString() })
+        .eq('id', bookingId);
+    } else {
+      paymentToken = await createSnapTransaction({
+        booking_number: booking.booking_number,
+        total_amount: booking.total_amount,
+        user: booking.users,
+      });
+      await supabase
+        .from('bookings')
+        .update({ status: 'awaiting_payment' })
+        .eq('id', bookingId);
+    }
 
     return { payment_token: paymentToken, booking_number: booking.booking_number };
+  }
+
+  async getBookingDetail(bookingId: string, userId: string) {
+    const { data: booking, error } = await supabase
+      .from('bookings')
+      .select(`
+        id, booking_number, status, total_amount, platform_fee, notes, created_at, expires_at, paid_at,
+        booking_items(
+          id, item_type, quantity, unit_price, subtotal, metadata,
+          ticket_tiers(name, price, events(title, start_at, end_at, banner_url, venues(name, city, address))),
+          accommodations(name, type, city, address, star_rating),
+          tickets(id, qr_code, status)
+        )
+      `)
+      .eq('id', bookingId)
+      .eq('user_id', userId)
+      .single();
+
+    if (error || !booking) throw new AppError('BOOKING_NOT_FOUND', 404);
+    return booking;
   }
 
   async getUserBookings(userId: string, page = 1, limit = 20) {
@@ -158,7 +281,7 @@ export class BookingsService {
     const { data, count, error } = await supabase
       .from('bookings')
       .select(
-        `id, booking_number, status, total_amount, created_at,
+        `id, booking_number, status, total_amount, notes, created_at,
          booking_items(
            item_type, quantity, subtotal,
            ticket_tiers(name, events(title, start_at, banner_url, venues(name, city))),
@@ -187,7 +310,6 @@ export class BookingsService {
       i => i.item_type === 'ticket'
     );
 
-    // Generate individual tickets
     const tickets = ticketItems.flatMap((item: any) =>
       Array.from({ length: item.quantity }, () => ({
         booking_item_id: item.id,
@@ -202,7 +324,6 @@ export class BookingsService {
       await supabase.from('tickets').insert(tickets);
     }
 
-    // Update sold quota
     for (const item of ticketItems) {
       await supabase.rpc('confirm_ticket_sale', {
         p_tier_id: item.ticket_tier_id,

@@ -1,9 +1,18 @@
-node_modules/
-dist/
-.expo/
 .turbo/
 *.log
 .env
 .env.local
 .env.*.local
 *.tsbuildinfo
+
+# iOS
+ios/Pods/
+apps/mobile/ios/Pods/
+
+# Node
+node_modules/
+
+# Expo / build
+.expo/
+dist/
+build/

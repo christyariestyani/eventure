@@ -7,6 +7,8 @@ import { eventsRoutes } from './modules/events/events.routes';
 import { bookingsRoutes } from './modules/bookings/bookings.routes';
 import { webhookRoutes } from './modules/webhooks/midtrans.routes';
 import { recommendationsRoutes } from './modules/recommendations/recommendations.routes';
+import { authRoutes } from './modules/auth/auth.routes';
+import { accommodationsRoutes } from './modules/accommodations/accommodations.routes';
 
 const server = Fastify({
   logger: {
@@ -39,8 +41,10 @@ async function bootstrap() {
   server.get('/health', async () => ({ status: 'ok', ts: new Date().toISOString() }));
 
   // API v1 routes
+  await server.register(authRoutes, { prefix: '/api/v1/auth' });
   await server.register(eventsRoutes, { prefix: '/api/v1/events' });
   await server.register(bookingsRoutes, { prefix: '/api/v1/bookings' });
+  await server.register(accommodationsRoutes, { prefix: '/api/v1/accommodations' });
   await server.register(recommendationsRoutes, { prefix: '/api/v1/recommendations' });
 
   // Webhooks (no /api/v1 prefix — Midtrans needs stable URL)

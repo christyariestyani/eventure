@@ -17,9 +17,26 @@ export async function lockTickets(
   quantity: number,
   bookingId: string
 ): Promise<void> {
+  const quotaKey = QUOTA_KEY(tierId);
+
+  // Auto-initialize from DB if quota not in Redis (e.g. after cache flush)
+  const exists = await redis.exists(quotaKey);
+  if (!exists) {
+    const { supabase } = await import('./db');
+    const { data: tier } = await supabase
+      .from('ticket_tiers')
+      .select('available_quota')
+      .eq('id', tierId)
+      .single();
+
+    if (!tier) throw new AppError('TIER_NOT_FOUND', 404);
+    // setnx: only sets if key still absent — safe under concurrent requests
+    await redis.setnx(quotaKey, tier.available_quota);
+  }
+
   const result = await redis.eval(
     LOCK_SCRIPT,
-    [QUOTA_KEY(tierId)],
+    [quotaKey],
     [quantity]
   ) as number;
 

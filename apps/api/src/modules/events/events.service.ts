@@ -22,7 +22,7 @@ export class EventsService {
          ticket_tiers(id, name, price, available_quota, status)`,
         { count: 'exact' }
       )
-      .eq('status', 'published')
+      .in('status', ['published', 'sold_out'])
       .gte('start_at', new Date().toISOString())
       .order('start_at', { ascending: true })
       .range(offset, offset + limit - 1);
@@ -57,7 +57,7 @@ export class EventsService {
          ticket_tiers(id, name, description, price, available_quota, max_per_user, status, benefits)`
       )
       .eq('id', id)
-      .eq('status', 'published')
+      .in('status', ['published', 'sold_out'])
       .single();
 
     if (error || !data) return null;
@@ -78,10 +78,11 @@ export class EventsService {
       ? Math.min(...availableTiers.map((t: any) => t.price))
       : null;
 
+    const hasQuota = availableTiers.some((t: any) => (t.available_quota ?? 0) > 0);
     return {
       ...event,
       min_price: minPrice,
-      is_available: availableTiers.some((t: any) => (t.available_quota ?? 0) > 0),
+      is_available: event.status !== 'sold_out' && hasQuota,
       ticket_tiers: tiers,
     };
   }
