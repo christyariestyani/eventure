@@ -37,7 +37,7 @@ export default function EventDetailScreen() {
       const tier = event!.ticket_tiers.find(t => t.id === tierId);
       const booking = await createBooking.mutateAsync({ ticket_tier_id: tierId, quantity });
       router.push({
-        pathname: `/booking/${booking.booking_id}/checkout` as any,
+        pathname: `/booking/${booking.booking_number}/checkout` as any,
         params: {
           baseAmount: String((tier?.price ?? 0) * quantity),
           eventTitle: event!.title,

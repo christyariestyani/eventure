@@ -80,7 +80,7 @@ export default function BookingsScreen() {
             <TouchableOpacity
               style={styles.card}
               activeOpacity={0.88}
-              onPress={() => router.push(`/booking/${item.id}`)}
+              onPress={() => router.push(`/booking/${item.booking_number}`)}
             >
               {/* Status strip */}
               <View style={[styles.statusStrip, { backgroundColor: status.bg }]}>

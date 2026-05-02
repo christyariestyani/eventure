@@ -60,7 +60,7 @@ export default function EventCard({ event, onPress }: EventCardProps) {
         <View style={styles.metaRow}>
           <Text style={styles.metaIcon}>📍</Text>
           <Text style={styles.metaText} numberOfLines={1}>
-            {event.venue.name}, {event.venue.city}
+            {event.venue.city}
           </Text>
         </View>
 
