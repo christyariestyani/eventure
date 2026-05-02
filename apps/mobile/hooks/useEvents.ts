@@ -73,3 +73,25 @@ export function useRecommendations() {
   });
   return { data: query.data, refetch: query.refetch, isRefetching: query.isRefetching };
 }
+
+export interface SmartFeed {
+  forYou:   ApiEvent[];
+  nearYou:  ApiEvent[];
+  activity: ApiEvent[];
+}
+
+export function useSmartFeed(enabled = true) {
+  const query = useQuery<SmartFeed>({
+    queryKey: ['feed'],
+    queryFn: () =>
+      api.get('/recommendations/feed').then(res => res.data.data as SmartFeed),
+    staleTime: 60 * 1000,
+    enabled,
+  });
+  return {
+    feed: query.data ?? { forYou: [], nearYou: [], activity: [] },
+    isLoading: query.isLoading,
+    isRefetching: query.isRefetching,
+    refetch: query.refetch,
+  };
+}

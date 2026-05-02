@@ -18,9 +18,10 @@ const MENU_SECTIONS = [
   {
     title: 'Akun',
     items: [
-      { icon: '👤', label: 'Edit Profil', route: null, chevron: true },
-      { icon: '🔔', label: 'Notifikasi', route: null, chevron: true },
-      { icon: '⚙️', label: 'Pengaturan', route: null, chevron: true },
+      { icon: '👤', label: 'Edit Profil',   route: null,          chevron: true },
+      { icon: '🎯', label: 'Preferensi',    route: '/preferences', chevron: true },
+      { icon: '🔔', label: 'Notifikasi',    route: null,          chevron: true },
+      { icon: '⚙️', label: 'Pengaturan',   route: null,          chevron: true },
     ],
   },
   {

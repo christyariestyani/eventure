@@ -1,7 +1,7 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View, Text, Image, ScrollView, TouchableOpacity,
-  StyleSheet, ActivityIndicator, SafeAreaView, Alert,
+  StyleSheet, ActivityIndicator, SafeAreaView,
 } from 'react-native';
 import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
 import { format } from 'date-fns';
@@ -9,12 +9,23 @@ import { id as idLocale } from 'date-fns/locale';
 import { useEvent } from '../../hooks/useEvents';
 import TierSelector from '../../components/TierSelector';
 import { useCreateBooking } from '../../hooks/useBooking';
+import ItinerarySheet from '../../components/ItinerarySheet';
+import { useDwellTracker } from '../../hooks/useBehavior';
+
+const P = '#5B8EF0';
 
 export default function EventDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const { data: event, isLoading } = useEvent(id);
   const createBooking = useCreateBooking();
+  const [showItinerary, setShowItinerary] = useState(false);
+  const { startDwell, stopDwell } = useDwellTracker(id);
+
+  useEffect(() => {
+    startDwell();
+    return () => { stopDwell(); };
+  }, []);
 
   if (isLoading) {
     return (
@@ -106,6 +117,20 @@ export default function EventDetailScreen() {
             </View>
           ) : null}
 
+          {/* Itinerary CTA */}
+          <TouchableOpacity
+            style={styles.itineraryBtn}
+            onPress={() => setShowItinerary(true)}
+            activeOpacity={0.85}
+          >
+            <Text style={styles.itineraryIcon}>🗺</Text>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.itineraryTitle}>Rencanakan Perjalanan</Text>
+              <Text style={styles.itinerarySub}>Tiket + hotel + transport dalam satu paket</Text>
+            </View>
+            <Text style={styles.itineraryArrow}>›</Text>
+          </TouchableOpacity>
+
           <View style={styles.section}>
             <TierSelector
               tiers={event.ticket_tiers}
@@ -115,6 +140,12 @@ export default function EventDetailScreen() {
           </View>
         </View>
       </ScrollView>
+
+      <ItinerarySheet
+        eventId={id}
+        visible={showItinerary}
+        onClose={() => setShowItinerary(false)}
+      />
     </SafeAreaView>
   );
 }
@@ -143,4 +174,14 @@ const styles = StyleSheet.create({
   sectionTitle: { fontSize: 17, fontWeight: '700', color: '#111827', marginBottom: 10 },
   description: { fontSize: 14, color: '#6B7280', lineHeight: 22 },
   backChevron: { fontSize: 32, color: '#1D63ED', fontWeight: '300', lineHeight: 36, marginLeft: 4 },
+
+  itineraryBtn: {
+    flexDirection: 'row', alignItems: 'center', gap: 12,
+    backgroundColor: '#EEF3FF', borderRadius: 14, padding: 14,
+    marginTop: 16, borderWidth: 1, borderColor: '#C7D7FD',
+  },
+  itineraryIcon:  { fontSize: 26 },
+  itineraryTitle: { fontSize: 14, fontWeight: '700', color: P },
+  itinerarySub:   { fontSize: 12, color: '#64748B', marginTop: 2 },
+  itineraryArrow: { fontSize: 22, color: P, fontWeight: '700' },
 });
