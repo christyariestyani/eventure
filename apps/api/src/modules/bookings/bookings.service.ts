@@ -150,14 +150,14 @@ export class BookingsService {
   }
 
   async addAddons(
-    bookingId: string,
+    bookingNumber: string,
     userId: string,
     addons: { hotel_id?: string; transport_price?: number }
   ) {
     const { data: booking } = await supabase
       .from('bookings')
       .select('id, status, total_amount, platform_fee')
-      .eq('id', bookingId)
+      .eq('booking_number', bookingNumber)
       .eq('user_id', userId)
       .single();
 
@@ -178,7 +178,7 @@ export class BookingsService {
       if (hotel) {
         addonTotal += hotel.base_price;
         await supabase.from('booking_items').insert({
-          booking_id: bookingId,
+          booking_id: booking.id,
           item_type: 'accommodation',
           accommodation_id: addons.hotel_id,
           quantity: 1,
@@ -191,9 +191,8 @@ export class BookingsService {
 
     if (addons.transport_price && addons.transport_price > 0) {
       addonTotal += addons.transport_price;
-      // Simpan sebagai booking_item dengan item_type transport
       await supabase.from('booking_items').insert({
-        booking_id: bookingId,
+        booking_id: booking.id,
         item_type: 'transport',
         quantity: 1,
         unit_price: addons.transport_price,
@@ -207,17 +206,17 @@ export class BookingsService {
       await supabase
         .from('bookings')
         .update({ total_amount: newTotal })
-        .eq('id', bookingId);
+        .eq('id', booking.id);
     }
 
     return { ok: true };
   }
 
-  async initiatePayment(bookingId: string, userId: string) {
+  async initiatePayment(bookingNumber: string, userId: string) {
     const { data: booking } = await supabase
       .from('bookings')
       .select('*, users(full_name, email, phone)')
-      .eq('id', bookingId)
+      .eq('booking_number', bookingNumber)
       .eq('user_id', userId)
       .single();
 
@@ -240,7 +239,7 @@ export class BookingsService {
       await supabase
         .from('bookings')
         .update({ status: 'confirmed', paid_at: new Date().toISOString() })
-        .eq('id', bookingId);
+        .eq('booking_number', bookingNumber);
     } else {
       paymentToken = await createSnapTransaction({
         booking_number: booking.booking_number,
@@ -250,13 +249,13 @@ export class BookingsService {
       await supabase
         .from('bookings')
         .update({ status: 'awaiting_payment' })
-        .eq('id', bookingId);
+        .eq('booking_number', bookingNumber);
     }
 
     return { payment_token: paymentToken, booking_number: booking.booking_number };
   }
 
-  async getBookingDetail(bookingId: string, userId: string) {
+  async getBookingDetail(bookingNumber: string, userId: string) {
     const { data: booking, error } = await supabase
       .from('bookings')
       .select(`
@@ -268,7 +267,7 @@ export class BookingsService {
           tickets(id, qr_code, status)
         )
       `)
-      .eq('id', bookingId)
+      .eq('booking_number', bookingNumber)
       .eq('user_id', userId)
       .single();
 
