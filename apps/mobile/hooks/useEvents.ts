@@ -12,6 +12,7 @@ export interface ApiEvent {
   status: string;
   min_price?: number;
   is_available?: boolean;
+  organizer?: { id: string; full_name: string } | null;
   venue: { id: string; name: string; city: string; latitude: number; longitude: number };
   ticket_tiers: ApiTicketTier[];
 }

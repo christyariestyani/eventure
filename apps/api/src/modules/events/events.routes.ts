@@ -1,6 +1,7 @@
 import { FastifyInstance } from 'fastify';
 import { EventsService } from './events.service';
 import { GetEventsQuerySchema } from './events.schema';
+import { redis } from '../../lib/redis';
 
 export async function eventsRoutes(fastify: FastifyInstance) {
   const service = new EventsService();
@@ -20,4 +21,13 @@ export async function eventsRoutes(fastify: FastifyInstance) {
     if (!event) return reply.status(404).send({ error: 'Event not found' });
     return reply.send({ data: event });
   });
+
+  // DELETE /api/v1/events/cache — flush event cache (dev only)
+  if (process.env.NODE_ENV !== 'production') {
+    fastify.delete('/cache', async (_req, reply) => {
+      const keys = await redis.keys('event*');
+      if (keys.length > 0) await redis.del(...keys);
+      return reply.send({ cleared: keys.length });
+    });
+  }
 }

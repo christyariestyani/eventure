@@ -18,6 +18,7 @@ export class EventsService {
       .from('events')
       .select(
         `id, title, category, tags, start_at, end_at, banner_url, status,
+         organizer:users!events_organizer_id_fkey(id, full_name),
          venue:venues(id, name, city, latitude, longitude),
          ticket_tiers(id, name, price, available_quota, status)`,
         { count: 'exact' }
@@ -53,7 +54,7 @@ export class EventsService {
     const { data, error } = await supabase
       .from('events')
       .select(
-        `*, venue:venues(*),
+        `*, organizer:users!organizer_id(id, full_name), venue:venues(*),
          ticket_tiers(id, name, description, price, available_quota, max_per_user, status, benefits)`
       )
       .eq('id', id)

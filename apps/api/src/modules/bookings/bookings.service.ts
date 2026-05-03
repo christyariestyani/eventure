@@ -130,10 +130,9 @@ export class BookingsService {
       await redis.rename(LOCK_KEY(ticket_tier_id, 'temp'), LOCK_KEY(ticket_tier_id, booking.id));
       await redis.expire(LOCK_KEY(ticket_tier_id, booking.id), 900);
 
-      supabase.rpc('increment_reserved_quota', {
-        p_tier_id: ticket_tier_id,
-        p_quantity: quantity,
-      }).then().catch(console.error);
+      void Promise.resolve(
+        supabase.rpc('increment_reserved_quota', { p_tier_id: ticket_tier_id, p_quantity: quantity })
+      ).catch(console.error);
 
       return {
         booking_id: booking.id,
@@ -152,7 +151,13 @@ export class BookingsService {
   async addAddons(
     bookingNumber: string,
     userId: string,
-    addons: { hotel_id?: string; transport_price?: number }
+    addons: {
+      hotel_id?: string;
+      transport_price?: number;
+      hotel_meta?: Record<string, any>;
+      outbound_meta?: Record<string, any>;
+      return_meta?: Record<string, any>;
+    }
   ) {
     const { data: booking } = await supabase
       .from('bookings')
@@ -166,6 +171,13 @@ export class BookingsService {
       throw new AppError('BOOKING_NOT_PAYABLE', 400);
     }
 
+    // Remove stale addon items so re-submitting replaces them
+    await supabase
+      .from('booking_items')
+      .delete()
+      .eq('booking_id', booking.id)
+      .in('item_type', ['accommodation', 'outbound_transport', 'return_transport']);
+
     let addonTotal = 0;
 
     if (addons.hotel_id) {
@@ -176,38 +188,77 @@ export class BookingsService {
         .single();
 
       if (hotel) {
-        addonTotal += hotel.base_price;
+        const nights = addons.hotel_meta?.nights ?? 1;
+        const hotelSubtotal = hotel.base_price * Math.max(1, nights);
+        addonTotal += hotelSubtotal;
         await supabase.from('booking_items').insert({
           booking_id: booking.id,
           item_type: 'accommodation',
           accommodation_id: addons.hotel_id,
-          quantity: 1,
+          quantity: nights,
           unit_price: hotel.base_price,
-          subtotal: hotel.base_price,
-          metadata: { name: hotel.name },
+          subtotal: hotelSubtotal,
+          metadata: {
+            name: hotel.name,
+            ...addons.hotel_meta,
+          },
         });
       }
     }
 
-    if (addons.transport_price && addons.transport_price > 0) {
+    if (addons.outbound_meta) {
+      const price = addons.outbound_meta.price ?? 0;
+      addonTotal += price;
+      await supabase.from('booking_items').insert({
+        booking_id: booking.id,
+        item_type: 'outbound_transport',
+        quantity: 1,
+        unit_price: price,
+        subtotal: price,
+        metadata: addons.outbound_meta,
+      });
+    } else if (addons.transport_price && addons.transport_price > 0) {
+      // Fallback for old clients that only send transport_price
       addonTotal += addons.transport_price;
       await supabase.from('booking_items').insert({
         booking_id: booking.id,
-        item_type: 'transport',
+        item_type: 'outbound_transport',
         quantity: 1,
         unit_price: addons.transport_price,
         subtotal: addons.transport_price,
-        metadata: { transport_price: addons.transport_price },
+        metadata: { price: addons.transport_price },
       });
     }
 
-    if (addonTotal > 0) {
-      const newTotal = booking.total_amount + addonTotal;
-      await supabase
-        .from('bookings')
-        .update({ total_amount: newTotal })
-        .eq('id', booking.id);
+    if (addons.return_meta) {
+      const price = addons.return_meta.price ?? 0;
+      addonTotal += price;
+      await supabase.from('booking_items').insert({
+        booking_id: booking.id,
+        item_type: 'return_transport',
+        quantity: 1,
+        unit_price: price,
+        subtotal: price,
+        metadata: addons.return_meta,
+      });
     }
+
+    // Recalculate total from ticket subtotal + new addons + platform fee
+    const { data: ticketItem } = await supabase
+      .from('booking_items')
+      .select('subtotal')
+      .eq('booking_id', booking.id)
+      .eq('item_type', 'ticket')
+      .single();
+
+    const ticketSubtotal = ticketItem?.subtotal ?? 0;
+    const platformFee = booking.platform_fee ?? Math.round(ticketSubtotal * 0.03);
+    const newTotal = ticketSubtotal + addonTotal + platformFee;
+
+    await supabase
+      .from('bookings')
+      .update({ total_amount: newTotal })
+      .eq('id', booking.id);
 
     return { ok: true };
   }
@@ -262,8 +313,8 @@ export class BookingsService {
         id, booking_number, status, total_amount, platform_fee, notes, created_at, expires_at, paid_at,
         booking_items(
           id, item_type, quantity, unit_price, subtotal, metadata,
-          ticket_tiers(name, price, events(title, start_at, end_at, banner_url, venues(name, city, address))),
-          accommodations(name, type, city, address, star_rating),
+          ticket_tiers(name, price, event_id, events(id, title, start_at, end_at, banner_url, venues(name, city, address, latitude, longitude))),
+          accommodations(id, name, type, city, address, star_rating, latitude, longitude),
           tickets(id, qr_code, status)
         )
       `)

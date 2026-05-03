@@ -147,7 +147,7 @@ export class ItineraryService {
     // 5. Cost summary
     const ticketPrice = recommendedTier?.price ?? 0;
     const hotelPrice  = bestHotel?.base_price ?? 0;
-    const platformFee = Math.round((ticketPrice + hotelPrice) * 0.03);
+    const platformFee = Math.round(ticketPrice * 0.03);
     const total = ticketPrice + hotelPrice + transportPrice + platformFee;
 
     // 6. Day schedule (template-based, enriched by event duration)

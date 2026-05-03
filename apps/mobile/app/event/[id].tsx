@@ -57,6 +57,10 @@ export default function EventDetailScreen() {
           city: event!.venue.city,
           venueLat: String(event!.venue.latitude),
           venueLng: String(event!.venue.longitude),
+          eventStartAt: event!.start_at,
+          eventEndAt:   event!.end_at ?? '',
+          venueName:    event!.venue.name,
+          venueAddress: (event!.venue as any).address ?? '',
         },
       });
     } catch (err: any) {
@@ -109,6 +113,15 @@ export default function EventDetailScreen() {
               {event.venue.name}, {event.venue.city}
             </Text>
           </View>
+
+          {event.organizer?.full_name && (
+            <View style={styles.infoRow}>
+              <Text style={styles.infoIcon}>🏢</Text>
+              <Text style={[styles.infoText, styles.organizerText]}>
+                {event.organizer.full_name}
+              </Text>
+            </View>
+          )}
 
           {event.description ? (
             <View style={styles.section}>
@@ -173,7 +186,8 @@ const styles = StyleSheet.create({
   section: { marginTop: 20 },
   sectionTitle: { fontSize: 17, fontWeight: '700', color: '#111827', marginBottom: 10 },
   description: { fontSize: 14, color: '#6B7280', lineHeight: 22 },
-  backChevron: { fontSize: 32, color: '#1D63ED', fontWeight: '300', lineHeight: 36, marginLeft: 4 },
+  backChevron:   { fontSize: 32, color: '#1D63ED', fontWeight: '300', lineHeight: 36, marginLeft: 4 },
+  organizerText: { color: '#5B8EF0', fontWeight: '600' },
 
   itineraryBtn: {
     flexDirection: 'row', alignItems: 'center', gap: 12,

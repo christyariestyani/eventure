@@ -5,7 +5,7 @@ import { id as idLocale } from 'date-fns/locale';
 import type { ApiEvent } from '../hooks/useEvents';
 
 interface EventCardProps {
-  event: Pick<ApiEvent, 'id' | 'title' | 'category' | 'start_at' | 'banner_url' | 'min_price' | 'is_available' | 'venue'>;
+  event: Pick<ApiEvent, 'id' | 'title' | 'category' | 'start_at' | 'banner_url' | 'min_price' | 'is_available' | 'venue' | 'organizer'>;
   onPress: () => void;
 }
 
@@ -69,6 +69,15 @@ export default function EventCard({ event, onPress }: EventCardProps) {
           <Text style={styles.metaText}>{date}</Text>
         </View>
 
+        {event.organizer?.full_name && (
+          <View style={styles.metaRow}>
+            <Text style={styles.metaIcon}>🏢</Text>
+            <Text style={styles.organizerText} numberOfLines={1}>
+              {event.organizer.full_name}
+            </Text>
+          </View>
+        )}
+
         <View style={styles.footer}>
           {soldOut ? (
             <View style={styles.soldOutPill}>
@@ -129,7 +138,8 @@ const styles = StyleSheet.create({
   titleDim: { color: '#6B7280' },
   metaRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   metaIcon: { fontSize: 12 },
-  metaText: { fontSize: 12, color: '#6B7280', flex: 1 },
+  metaText:      { fontSize: 12, color: '#6B7280', flex: 1 },
+  organizerText: { fontSize: 12, color: '#5B8EF0', flex: 1, fontWeight: '600' },
   footer: {
     flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
     marginTop: 4, paddingTop: 10, borderTopWidth: 1, borderTopColor: '#F3F4F6',
