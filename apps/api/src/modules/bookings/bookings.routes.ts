@@ -31,7 +31,13 @@ export async function bookingsRoutes(fastify: FastifyInstance) {
   fastify.patch('/:id/addons', { preHandler: requireAuth }, async (request, reply) => {
     const user = (request as any).user as { id: string };
     const { id } = request.params as { id: string };
-    const body = request.body as { hotel_id?: string; transport_price?: number };
+    const body = request.body as {
+      hotel_id?: string;
+      transport_price?: number;
+      hotel_meta?: Record<string, any>;
+      outbound_meta?: Record<string, any>;
+      return_meta?: Record<string, any>;
+    };
 
     try {
       const result = await service.addAddons(id, user.id, body);

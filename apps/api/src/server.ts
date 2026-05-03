@@ -13,15 +13,39 @@ import { preferencesRoutes } from './modules/preferences/preferences.routes';
 import { behaviorRoutes } from './modules/behavior/behavior.routes';
 import { itineraryRoutes } from './modules/itinerary/itinerary.routes';
 
+const isDev = process.env.NODE_ENV !== 'production';
+
 const server = Fastify({
   logger: {
-    level: process.env.NODE_ENV === 'production' ? 'warn' : 'info',
-    transport:
-      process.env.NODE_ENV !== 'production'
-        ? { target: 'pino-pretty' }
-        : undefined,
+    level: isDev ? 'info' : 'warn',
+    transport: isDev
+      ? {
+          target: 'pino-pretty',
+          options: {
+            colorize: true,
+            translateTime: 'SYS:HH:MM:ss',
+            ignore: 'pid,hostname,reqId,req,res,responseTime',
+            messageFormat: '{msg}',
+          },
+        }
+      : undefined,
   },
+  // Disable Fastify's default per-request logs — we use custom hooks below
+  disableRequestLogging: true,
 });
+
+// ─── Skip logging for these paths ──────────────────────────────────────────────
+const SILENT_PATHS = new Set(['/health', '/api/v1/me/behavior']);
+
+function shouldLog(url: string) {
+  const path = url.split('?')[0];
+  return !SILENT_PATHS.has(path);
+}
+
+function truncate(obj: unknown, maxLen = 300): string {
+  const s = JSON.stringify(obj) ?? '';
+  return s.length > maxLen ? s.slice(0, maxLen) + '…' : s;
+}
 
 async function bootstrap() {
   await server.register(cors, {
@@ -38,6 +62,32 @@ async function bootstrap() {
     timeWindow: '1 minute',
     keyGenerator: (req) =>
       req.headers['x-forwarded-for'] as string ?? req.ip,
+  });
+
+  // ── Request / Response logging hooks ────────────────────────────────────────
+  server.addHook('onRequest', async (req) => {
+    if (!shouldLog(req.url)) return;
+    (req as any)._startMs = Date.now();
+    server.log.info(`→ ${req.method} ${req.url}`);
+  });
+
+  server.addHook('preHandler', async (req) => {
+    if (!shouldLog(req.url)) return;
+    if (['POST', 'PUT', 'PATCH'].includes(req.method) && req.body) {
+      server.log.info(`  body: ${truncate(req.body)}`);
+    }
+  });
+
+  server.addHook('onResponse', async (req, reply) => {
+    if (!shouldLog(req.url)) return;
+    const ms = Date.now() - ((req as any)._startMs ?? Date.now());
+    const status = reply.statusCode;
+    const level = status >= 500 ? 'error' : status >= 400 ? 'warn' : 'info';
+    server.log[level](`← ${status} ${req.method} ${req.url.split('?')[0]} (${ms}ms)`);
+  });
+
+  server.addHook('onError', async (req, _reply, error) => {
+    server.log.error(`✗ ${req.method} ${req.url} — ${error.message}`);
   });
 
   // Health check

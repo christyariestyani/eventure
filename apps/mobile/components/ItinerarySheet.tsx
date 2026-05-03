@@ -1,13 +1,14 @@
 import React from 'react';
 import {
   View, Text, ScrollView, TouchableOpacity,
-  Modal, StyleSheet, ActivityIndicator, Linking,
+  Modal, StyleSheet, ActivityIndicator, Alert,
 } from 'react-native';
 import { format } from 'date-fns';
 import { id as idLocale } from 'date-fns/locale';
 import { useRouter } from 'expo-router';
 import { useItinerary } from '../hooks/useItinerary';
 import { useTrackBehavior } from '../hooks/useBehavior';
+import { useCreateBooking } from '../hooks/useBooking';
 
 const P = '#5B8EF0';
 
@@ -23,14 +24,46 @@ interface Props {
 }
 
 export default function ItinerarySheet({ eventId, visible, onClose }: Props) {
-  const router    = useRouter();
-  const track     = useTrackBehavior();
+  const router         = useRouter();
+  const track          = useTrackBehavior();
+  const createBooking  = useCreateBooking();
   const { data: bundle, isLoading } = useItinerary(visible ? eventId : null);
 
-  const handleBookBundle = () => {
+  const handleBookBundle = async () => {
     if (!bundle?.recommended_ticket) return;
-    onClose();
-    router.push(`/event/${eventId}`);
+    try {
+      const booking = await createBooking.mutateAsync({
+        ticket_tier_id: bundle.recommended_ticket.id,
+        quantity: 1,
+      });
+      onClose();
+      router.push({
+        pathname: `/booking/${booking.booking_number}/checkout` as any,
+        params: {
+          baseAmount:                String(bundle.recommended_ticket.price),
+          eventTitle:                bundle.event.title,
+          tierName:                  bundle.recommended_ticket.name,
+          qty:                       '1',
+          city:                      bundle.event.venue.city,
+          venueLat:                  String(bundle.event.venue.latitude),
+          venueLng:                  String(bundle.event.venue.longitude),
+          preselectedHotelId:        bundle.accommodation?.id ?? '',
+          preselectedTransportPrice: String(bundle.transport.estimated_price),
+          eventStartAt:              bundle.event.start_at,
+          eventEndAt:                bundle.event.end_at ?? '',
+          venueName:                 bundle.event.venue.name,
+          venueAddress:              bundle.event.venue.address,
+        },
+      });
+    } catch (err: any) {
+      const code = err?.response?.data?.error;
+      Alert.alert(
+        'Gagal memesan',
+        code === 'QUOTA_INSUFFICIENT'
+          ? 'Tiket ini sudah habis.'
+          : 'Terjadi kesalahan, coba lagi.',
+      );
+    }
   };
 
   React.useEffect(() => {
@@ -167,8 +200,16 @@ export default function ItinerarySheet({ eventId, visible, onClose }: Props) {
               <Text style={styles.ctaTotalLabel}>Estimasi total</Text>
               <Text style={styles.ctaTotalAmount}>{fmt(bundle.cost_summary.total)}</Text>
             </View>
-            <TouchableOpacity style={styles.ctaBtn} onPress={handleBookBundle} activeOpacity={0.85}>
-              <Text style={styles.ctaBtnText}>Pesan Sekarang →</Text>
+            <TouchableOpacity
+              style={[styles.ctaBtn, createBooking.isPending && styles.ctaBtnLoading]}
+              onPress={handleBookBundle}
+              disabled={createBooking.isPending}
+              activeOpacity={0.85}
+            >
+              {createBooking.isPending
+                ? <ActivityIndicator color="#fff" />
+                : <Text style={styles.ctaBtnText}>Pesan Sekarang →</Text>
+              }
             </TouchableOpacity>
           </View>
         )}
@@ -281,6 +322,7 @@ const styles = StyleSheet.create({
   ctaTotal:       { flex: 1 },
   ctaTotalLabel:  { fontSize: 11, color: '#94A3B8' },
   ctaTotalAmount: { fontSize: 17, fontWeight: '800', color: '#1E293B' },
-  ctaBtn:         { backgroundColor: P, borderRadius: 14, paddingVertical: 14, paddingHorizontal: 20 },
+  ctaBtn:         { backgroundColor: P, borderRadius: 14, paddingVertical: 14, paddingHorizontal: 20, minWidth: 56, alignItems: 'center' },
+  ctaBtnLoading:  { opacity: 0.7 },
   ctaBtnText:     { fontSize: 14, fontWeight: '700', color: '#FFFFFF' },
 });

@@ -2,6 +2,13 @@
 -- Eventure — Dev Seed Data
 -- ============================================================
 
+-- Event Organizers
+INSERT INTO users (id, email, full_name, preferences) VALUES
+  ('33333333-0000-0000-0000-000000000001', 'hello@promotornusantara.id', 'Promotor Nusantara', '{"type":"organizer"}'),
+  ('33333333-0000-0000-0000-000000000002', 'info@sportiveindonesia.id',  'Sportive Indonesia',  '{"type":"organizer"}'),
+  ('33333333-0000-0000-0000-000000000003', 'contact@idemfestival.id',    'IDEM Festival',       '{"type":"organizer"}')
+ON CONFLICT (id) DO NOTHING;
+
 -- Venues
 INSERT INTO venues (id, name, city, address, latitude, longitude, capacity) VALUES
   ('11111111-0000-0000-0000-000000000001', 'Gelora Bung Karno', 'Jakarta', 'Jl. Pintu Satu Senayan, Jakarta Pusat', -6.218544, 106.802400, 77193),
@@ -9,9 +16,10 @@ INSERT INTO venues (id, name, city, address, latitude, longitude, capacity) VALU
   ('11111111-0000-0000-0000-000000000003', 'Stadion Mandala Krida', 'Yogyakarta', 'Jl. Kusumanegara No.1, Yogyakarta', -7.800540, 110.387220, 15000);
 
 -- Events
-INSERT INTO events (id, venue_id, title, category, tags, start_at, end_at, status, description) VALUES
+INSERT INTO events (id, organizer_id, venue_id, title, category, tags, start_at, end_at, status, description) VALUES
   (
     '22222222-0000-0000-0000-000000000001',
+    '33333333-0000-0000-0000-000000000001',  -- Promotor Nusantara
     '11111111-0000-0000-0000-000000000001',
     'Coldplay: Music of the Spheres World Tour — Jakarta',
     'music',
@@ -23,23 +31,25 @@ INSERT INTO events (id, venue_id, title, category, tags, start_at, end_at, statu
   ),
   (
     '22222222-0000-0000-0000-000000000002',
+    '33333333-0000-0000-0000-000000000001',  -- Promotor Nusantara (sama)
     '11111111-0000-0000-0000-000000000002',
-    'Jakarta International BNI Java Jazz Festival 2025',
+    'Jakarta International BNI Java Jazz Festival 2026',
     'music',
     ARRAY['jazz', 'festival', 'java-jazz', 'international'],
-    '2025-05-30 16:00:00+07',
-    '2025-06-01 23:00:00+07',
+    '2026-05-30 16:00:00+07',
+    '2026-06-01 23:00:00+07',
     'published',
     'Festival jazz terbesar di Asia Tenggara dengan lebih dari 100 penampil dari seluruh dunia.'
   ),
   (
     '22222222-0000-0000-0000-000000000003',
+    '33333333-0000-0000-0000-000000000002',  -- Sportive Indonesia (berbeda)
     '11111111-0000-0000-0000-000000000003',
-    'Borobudur Marathon 2025',
+    'Borobudur Marathon 2026',
     'sports',
     ARRAY['marathon', 'lari', 'borobudur', 'olahraga', 'heritage'],
-    '2025-11-16 05:00:00+07',
-    '2025-11-16 12:00:00+07',
+    '2026-11-15 05:00:00+07',
+    '2026-11-15 12:00:00+07',
     'published',
     'Lari marathon premium dengan latar belakang Candi Borobudur. Tersedia kategori Full Marathon, Half Marathon, dan 10K.'
   );
