@@ -239,7 +239,7 @@ function buildItinerary(params: {
 
     // ── Event day ──
     if (isEvent) {
-      const goHour = Math.max(eventHour - 1, 8);
+      const goHour = Math.max(eventHour - 1, 5);
       items.push({
         time:     fmtH(goHour),
         icon:     '🚕',
@@ -291,11 +291,22 @@ function buildItinerary(params: {
 
     // ── Check-out ──
     if (isCheckOut && hotel) {
+      // When returning same day, push check-out 1 hour before transport departure
+      let effectiveCheckOutTime = checkOutTime;
+      if (isReturn && returnMeta?.departure_time && !lateCheckOutTime) {
+        const [rh, rm] = (returnMeta.departure_time as string).split(':').map(Number);
+        const depMin = rh * 60 + (rm ?? 0) - 60;
+        const coH = Math.max(Math.floor(depMin / 60), 6);
+        const coM = Math.max(depMin % 60, 0);
+        effectiveCheckOutTime = `${String(coH).padStart(2, '0')}:${String(coM).padStart(2, '0')}`;
+      }
       items.push({
-        time:     checkOutTime,
+        time:     effectiveCheckOutTime,
         icon:     '🧳',
         title:    `Check-out ${hotel.name}`,
-        subtitle: lateCheckOutTime ? `Late check-out ${lateCheckOutTime}` : 'Batas 12:00',
+        subtitle: lateCheckOutTime
+          ? `Late check-out ${lateCheckOutTime}`
+          : `Batas ${effectiveCheckOutTime}`,
       });
     }
 

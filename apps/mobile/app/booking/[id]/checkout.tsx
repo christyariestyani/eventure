@@ -335,12 +335,13 @@ export default function CheckoutScreen() {
 
       // ── Check-in ──
       if (isCheckIn && hotel) {
-        items.push({ time: '14:00', icon: '🏨', title: `Check-in ${hotel.name}`, subtitle: `${'⭐'.repeat(hotel.star_rating)} · ${hotel.city}` });
+        const ciTime = earlyCheckIn ? earlyCheckInTime : '14:00';
+        items.push({ time: ciTime, icon: '🏨', title: `Check-in ${hotel.name}`, subtitle: `${'⭐'.repeat(hotel.star_rating)} · ${hotel.city}` });
       }
 
       // ── Event day ──
       if (isEvent) {
-        const goHour  = Math.max(eventHour - 1, 8);
+        const goHour  = Math.max(eventHour - 1, 5);
         const fmtH    = (h: number) => `${String(h).padStart(2, '0')}:00`;
         items.push({ time: fmtH(goHour), icon: '🚕', title: `Menuju ${venueName ?? 'Venue'}`, subtitle: hotel ? `Dari ${hotel.name}` : `Dari penginapan` });
         items.push({ time: fmtH(eventHour), icon: '🎟', title: eventTitle ?? 'Event Dimulai', subtitle: venueName ?? eventCity, highlight: true });
@@ -358,7 +359,15 @@ export default function CheckoutScreen() {
 
       // ── Check-out ──
       if (isCheckOut && hotel) {
-        items.push({ time: '12:00', icon: '🧳', title: `Check-out ${hotel.name}`, subtitle: 'Batas check-out 12:00' });
+        let coTime = lateCheckOut ? lateCheckOutTime : '12:00';
+        if (!lateCheckOut && isReturn && returnOpt?.departureTime) {
+          const [rh, rm] = returnOpt.departureTime.split(':').map(Number);
+          const depMin = rh * 60 + (rm ?? 0) - 60;
+          const coH = Math.max(Math.floor(depMin / 60), 6);
+          const coM = Math.max(depMin % 60, 0);
+          coTime = `${String(coH).padStart(2, '0')}:${String(coM).padStart(2, '0')}`;
+        }
+        items.push({ time: coTime, icon: '🧳', title: `Check-out ${hotel.name}`, subtitle: lateCheckOut ? `Late check-out ${lateCheckOutTime}` : `Batas ${coTime}` });
       }
 
       // ── Return journey ──
