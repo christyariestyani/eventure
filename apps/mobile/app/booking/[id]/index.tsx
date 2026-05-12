@@ -3,6 +3,7 @@ import {
   View, Text, ScrollView, StyleSheet, SafeAreaView,
   TouchableOpacity, ActivityIndicator,
 } from 'react-native';
+import QRCode from 'react-native-qrcode-svg';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { format, parseISO, addDays, isSameDay, isAfter, differenceInDays } from 'date-fns';
 import { id as idLocale } from 'date-fns/locale';
@@ -375,13 +376,6 @@ export default function BookingDetailScreen() {
   const venue = event?.venues;
   const issuedTickets: any[] = ticketItem?.tickets ?? [];
 
-  const ticketSubtotal   = ticketItem?.subtotal ?? 0;
-  const hotelSubtotal    = hotelItem?.subtotal ?? 0;
-  const outboundSubtotal = outboundItem?.subtotal ?? 0;
-  const returnSubtotal   = returnItem?.subtotal ?? 0;
-  const legacyTransport  = legacyTransportItem?.subtotal ?? 0;
-  const platformFee      = booking?.platform_fee ?? 0;
-
   // Prefer server metadata; fall back to locally saved plan
   const hotelMeta    = hotelItem?.metadata    ?? localPlan?.hotelMeta    ?? null;
   const outboundMeta = outboundItem?.metadata ?? localPlan?.outboundMeta ?? null;
@@ -442,6 +436,35 @@ export default function BookingDetailScreen() {
     ?? (hotelMeta?.check_in && hotelMeta?.check_out
       ? Math.max(1, differenceInDays(parseISO(hotelMeta.check_out), parseISO(hotelMeta.check_in)))
       : null);
+
+  // ── Subtotal computations ─────────────────────────────────────────────────
+  const lp = localPlan?.subtotals ?? null;
+
+  const ticketSubtotal = ticketItem?.subtotal ?? lp?.ticket ?? 0;
+
+  const hotelSubtotal = (() => {
+    if (lp?.hotel) return lp.hotel;
+    const unitPrice = hotelItem?.unit_price;
+    if (!unitPrice) return hotelItem?.subtotal ?? 0;
+    const nights = hotelMeta?.nights
+      ?? (hotelMeta?.check_in && hotelMeta?.check_out
+          ? Math.max(1, differenceInDays(parseISO(hotelMeta.check_out), parseISO(hotelMeta.check_in)))
+          : null)
+      ?? (hotelItem?.quantity && hotelItem.quantity > 1 ? hotelItem.quantity : null);
+    if (nights) return unitPrice * nights + (hotelMeta?.extra_fees ?? 0);
+    return hotelItem?.subtotal ?? 0;
+  })();
+
+  const outboundSubtotal   = outboundItem?.subtotal ?? lp?.outbound ?? outboundMeta?.price ?? 0;
+  const returnSubtotal     = returnItem?.subtotal   ?? lp?.return   ?? returnMeta?.price   ?? 0;
+  const hasNewTransport    = outboundItem || returnItem || outboundSubtotal > 0 || returnSubtotal > 0;
+  const legacyTransport    = (!hasNewTransport && legacyTransportItem) ? (legacyTransportItem.subtotal ?? 0) : 0;
+
+  const platformFee = booking.platform_fee ?? Math.round(ticketSubtotal * 0.03);
+
+  const displayTotal =
+    (ticketSubtotal + hotelSubtotal + outboundSubtotal + returnSubtotal + legacyTransport + platformFee)
+    || (booking.total_amount ?? 0);
 
   return (
     <SafeAreaView style={styles.safe}>
@@ -566,27 +589,33 @@ export default function BookingDetailScreen() {
                 <Text style={styles.subtotalValue}>{fmt(ticketSubtotal)}</Text>
               </View>
 
-              {/* QR Codes */}
+              {/* E-Tickets */}
               {issuedTickets.length > 0 && (
                 <View style={styles.qrSection}>
                   <View style={styles.divider} />
-                  <Text style={styles.qrTitle}>Kode Tiket</Text>
+                  <Text style={styles.qrTitle}>E-Tiket</Text>
                   {issuedTickets.map((t: any, idx: number) => (
-                    <View key={t.id} style={styles.qrBox}>
-                      <View style={styles.qrPlaceholder}>
-                        <Text style={styles.qrEmoji}>🎟</Text>
-                      </View>
-                      <View style={{ flex: 1 }}>
-                        <Text style={styles.qrLabel}>Tiket {idx + 1}</Text>
-                        <Text style={styles.qrCode} numberOfLines={1}>{t.qr_code}</Text>
+                    <View key={t.id} style={styles.eticketCard}>
+                      <View style={styles.eticketHeader}>
+                        <Text style={styles.eticketNum}>Tiket #{idx + 1}</Text>
                         <View style={[styles.ticketStatusBadge,
                           { backgroundColor: t.status === 'issued' ? '#D1FAE5' : '#F3F4F6' }]}>
                           <Text style={[styles.ticketStatusText,
                             { color: t.status === 'issued' ? '#059669' : '#6B7280' }]}>
-                            {t.status === 'issued' ? 'Aktif' : t.status}
+                            {t.status === 'issued' ? '✓ Aktif' : t.status}
                           </Text>
                         </View>
                       </View>
+                      <View style={styles.qrWrap}>
+                        <QRCode
+                          value={t.qr_code}
+                          size={180}
+                          color="#111827"
+                          backgroundColor="#FFFFFF"
+                        />
+                      </View>
+                      <Text style={styles.qrCodeText}>{t.qr_code}</Text>
+                      <Text style={styles.qrHint}>Tunjukkan kode ini di pintu masuk</Text>
                     </View>
                   ))}
                 </View>
@@ -644,11 +673,11 @@ export default function BookingDetailScreen() {
         )}
 
         {/* Transportasi */}
-        {(outboundItem || returnItem || legacyTransportItem) && (
+        {(outboundItem || returnItem || legacyTransportItem || outboundMeta || returnMeta) && (
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Transportasi</Text>
 
-            {outboundItem && (
+            {(outboundItem || outboundMeta) && (
               <View style={[styles.card, { marginBottom: 8 }]}>
                 <View style={styles.transportHeader}>
                   <Text style={styles.transportIconLg}>{outboundMeta?.icon ?? '🚌'}</Text>
@@ -685,7 +714,7 @@ export default function BookingDetailScreen() {
               </View>
             )}
 
-            {returnItem && (
+            {(returnItem || returnMeta) && (
               <View style={styles.card}>
                 <View style={styles.transportHeader}>
                   <Text style={styles.transportIconLg}>{returnMeta?.icon ?? '🚌'}</Text>
@@ -722,7 +751,7 @@ export default function BookingDetailScreen() {
               </View>
             )}
 
-            {legacyTransportItem && !outboundItem && (
+            {legacyTransportItem && !outboundItem && !outboundMeta && (
               <View style={styles.card}>
                 <View style={styles.row}>
                   <Text style={styles.infoIcon}>🚌</Text>
@@ -777,25 +806,28 @@ export default function BookingDetailScreen() {
               <View style={styles.breakdownRow}>
                 <Text style={styles.breakdownLabel}>
                   {[
-                    hotelMeta.early_check_in  && `Early check-in`,
-                    hotelMeta.late_check_out  && `Late check-out`,
+                    hotelMeta.early_check_in && `Early check-in`,
+                    hotelMeta.late_check_out && `Late check-out`,
                   ].filter(Boolean).join(' + ')}
                 </Text>
                 <Text style={styles.breakdownVal}>
-                  {fmt((hotelMeta.early_check_in ? 150000 : 0) + (hotelMeta.late_check_out ? 100000 : 0))}
+                  {fmt(
+                    hotelMeta.extra_fees ??
+                    ((hotelMeta.early_check_in ? 150000 : 0) + (hotelMeta.late_check_out ? 100000 : 0))
+                  )}
                 </Text>
               </View>
             )}
             {platformFee > 0 && (
               <View style={styles.breakdownRow}>
-                <Text style={styles.breakdownLabel}>Biaya Platform</Text>
+                <Text style={styles.breakdownLabel}>Biaya Layanan (inkl. pajak)</Text>
                 <Text style={styles.breakdownVal}>{fmt(platformFee)}</Text>
               </View>
             )}
             <View style={styles.divider} />
             <View style={styles.breakdownRow}>
               <Text style={styles.totalLabel}>Total Dibayar</Text>
-              <Text style={styles.totalAmount}>{fmt(booking.total_amount)}</Text>
+              <Text style={styles.totalAmount}>{fmt(displayTotal)}</Text>
             </View>
             {booking.paid_at && (
               <Text style={styles.paidAt}>
@@ -890,8 +922,21 @@ const styles = StyleSheet.create({
 
   divider: { height: 1, backgroundColor: '#F3F4F6', marginVertical: 4 },
 
-  qrSection: { gap: 10 },
-  qrTitle:   { fontSize: 13, fontWeight: '600', color: '#374151' },
+  qrSection: { gap: 12 },
+  qrTitle:   { fontSize: 13, fontWeight: '700', color: '#374151', marginBottom: 4 },
+  eticketCard: {
+    backgroundColor: '#F8FAFD', borderRadius: 16, padding: 20,
+    alignItems: 'center', gap: 12,
+    borderWidth: 1, borderColor: '#E5E7EB',
+  },
+  eticketHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', width: '100%' },
+  eticketNum:  { fontSize: 14, fontWeight: '700', color: '#111827' },
+  qrWrap: {
+    padding: 16, backgroundColor: '#FFFFFF', borderRadius: 12,
+    shadowColor: '#000', shadowOpacity: 0.06, shadowRadius: 8, elevation: 2,
+  },
+  qrCodeText: { fontSize: 11, color: '#6B7280', fontFamily: 'monospace', letterSpacing: 1 },
+  qrHint:     { fontSize: 11, color: '#94A3B8', textAlign: 'center' },
   qrBox:     { flexDirection: 'row', alignItems: 'center', gap: 12 },
   qrPlaceholder: {
     width: 52, height: 52, borderRadius: 10,

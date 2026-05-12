@@ -29,6 +29,7 @@ export default function PreferencesScreen() {
         mode="edit"
         initialValues={prefs}
         onDone={() => router.back()}
+        onSkip={() => router.back()}
       />
     </>
   );

@@ -11,15 +11,24 @@ export default function RegisterScreen() {
   const router = useRouter();
   const login = useAuthStore(s => s.login);
 
-  const [fullName, setFullName] = useState('');
-  const [email, setEmail] = useState('');
-  const [phone, setPhone] = useState('');
-  const [password, setPassword] = useState('');
-  const [loading, setLoading] = useState(false);
+  const [fullName,         setFullName]         = useState('');
+  const [email,            setEmail]            = useState('');
+  const [phone,            setPhone]            = useState('');
+  const [password,         setPassword]         = useState('');
+  const [confirmPassword,  setConfirmPassword]  = useState('');
+  const [loading,          setLoading]          = useState(false);
 
   const handleRegister = async () => {
     if (!fullName || !email || !password) {
       Alert.alert('Error', 'Nama, email, dan password wajib diisi');
+      return;
+    }
+    if (password !== confirmPassword) {
+      Alert.alert('Password Tidak Cocok', 'Pastikan konfirmasi password sama dengan password yang dimasukkan.');
+      return;
+    }
+    if (password.length < 8) {
+      Alert.alert('Password Terlalu Pendek', 'Password minimal 8 karakter.');
       return;
     }
     setLoading(true);
@@ -59,20 +68,30 @@ export default function RegisterScreen() {
               { label: 'Email', value: email, onChange: setEmail, placeholder: 'john@email.com', type: 'email-address' },
               { label: 'No. WhatsApp', value: phone, onChange: setPhone, placeholder: '08xxxxxxxxxx', type: 'phone-pad' },
               { label: 'Password', value: password, onChange: setPassword, placeholder: 'Min. 8 karakter', type: 'default', secure: true },
+              { label: 'Konfirmasi Password', value: confirmPassword, onChange: setConfirmPassword, placeholder: 'Ulangi password', type: 'default', secure: true },
             ].map(field => (
               <View key={field.label} style={styles.field}>
                 <Text style={styles.label}>{field.label}</Text>
                 <TextInput
-                  style={styles.input}
+                  style={[
+                    styles.input,
+                    field.label === 'Konfirmasi Password' && confirmPassword.length > 0 && password !== confirmPassword
+                      ? styles.inputError : null,
+                  ]}
                   placeholder={field.placeholder}
                   placeholderTextColor="#9CA3AF"
                   value={field.value}
                   onChangeText={field.onChange}
                   keyboardType={field.type as any}
                   secureTextEntry={field.secure}
-                  autoCapitalize={field.type === 'email-address' ? 'none' : 'words'}
+                  autoCapitalize="none"
                   autoCorrect={false}
                 />
+                {field.label === 'Konfirmasi Password' && confirmPassword.length > 0 && (
+                  <Text style={password === confirmPassword ? styles.matchOk : styles.matchErr}>
+                    {password === confirmPassword ? '✓ Password cocok' : '✗ Password tidak cocok'}
+                  </Text>
+                )}
               </View>
             ))}
 
@@ -131,4 +150,7 @@ const styles = StyleSheet.create({
   btnText: { color: '#FFFFFF', fontWeight: '700', fontSize: 16 },
   switchText: { textAlign: 'center', color: '#6B7280', fontSize: 14 },
   switchLink: { color: '#6366F1', fontWeight: '700' },
+  inputError: { borderColor: '#EF4444', backgroundColor: '#FFF5F5' },
+  matchOk:  { fontSize: 12, color: '#059669', fontWeight: '600', marginTop: 2 },
+  matchErr: { fontSize: 12, color: '#EF4444', fontWeight: '600', marginTop: 2 },
 });

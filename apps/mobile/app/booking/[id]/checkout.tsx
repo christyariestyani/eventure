@@ -272,7 +272,9 @@ export default function CheckoutScreen() {
 
     const dStart  = parseISO(departDate);
     const dEnd    = returnDate   ? parseISO(returnDate)
-      : checkOutDate ? parseISO(checkOutDate) : addDays(dStart, 2);
+      : checkOutDate ? parseISO(checkOutDate)
+      : eventStartAt ? parseISO(eventStartAt.split('T')[0])
+      : addDays(dStart, 2);
 
     // If transport arrives next day (e.g. overnight bus departs 19:00 arrives 04:30)
     const isOvernight = transport
@@ -343,7 +345,7 @@ export default function CheckoutScreen() {
       if (isEvent) {
         const goHour  = Math.max(eventHour - 1, 5);
         const fmtH    = (h: number) => `${String(h).padStart(2, '0')}:00`;
-        items.push({ time: fmtH(goHour), icon: '🚕', title: `Menuju ${venueName ?? 'Venue'}`, subtitle: hotel ? `Dari ${hotel.name}` : `Dari penginapan` });
+        items.push({ time: fmtH(goHour), icon: '🚕', title: `Menuju ${venueName ?? 'Venue'}`, subtitle: hotel ? `Dari ${hotel.name}` : undefined });
         items.push({ time: fmtH(eventHour), icon: '🎟', title: eventTitle ?? 'Event Dimulai', subtitle: venueName ?? eventCity, highlight: true });
         items.push({ time: fmtH(Math.min(eventEndHour, 23)), icon: '✅', title: 'Acara selesai', subtitle: venueAddress ?? eventCity });
         if (hotel) {
@@ -394,11 +396,13 @@ export default function CheckoutScreen() {
   }, [
     departDate, returnDate, checkInDate, checkOutDate,
     outboundOpt, returnOpt, selectedHotel, hotels,
+    earlyCheckIn, earlyCheckInTime, lateCheckOut, lateCheckOutTime,
     eventTitle, eventCity, homeCity, eventStartAt, eventEndAt, venueName, venueAddress,
   ]);
 
   // ── Amount calculations ────────────────────────────────────────────────────
 
+  const quantity        = parseInt(qty ?? '1', 10);
   const ticketAmount    = parseFloat(baseAmount ?? '0');
   const nights          = (checkInDate && checkOutDate)
     ? Math.max(1, differenceInDays(parseISO(checkOutDate), parseISO(checkInDate)))
@@ -410,8 +414,8 @@ export default function CheckoutScreen() {
   const earlyFee    = selectedHotel && earlyCheckIn  ? 150000 : 0;
   const lateFee     = selectedHotel && lateCheckOut  ? 100000 : 0;
 
-  const outboundAmount  = outboundOpt?.price ?? 0;
-  const returnAmount    = returnOpt?.price   ?? 0;
+  const outboundAmount  = (outboundOpt?.price ?? 0) * quantity;
+  const returnAmount    = (returnOpt?.price   ?? 0) * quantity;
   const transportAmount = outboundAmount + returnAmount;
 
   const platformFee = Math.round(ticketAmount * 0.03);
@@ -483,7 +487,9 @@ export default function CheckoutScreen() {
             origin_label:     outboundOpt.originLabel,
             dest_label:       outboundOpt.destLabel,
             is_overnight:     isOvernightTrip(outboundOpt),
-            price:            outboundOpt.price,
+            price:            outboundAmount,
+            price_per_person: outboundOpt.price,
+            quantity,
             seat_pos:         outboundSeatPos,
             seat_side:        outboundSeatSide,
             note:             outboundNote || undefined,
@@ -501,7 +507,9 @@ export default function CheckoutScreen() {
             origin_label:     returnOpt.originLabel,
             dest_label:       returnOpt.destLabel,
             is_overnight:     isOvernightTrip(returnOpt),
-            price:            returnOpt.price,
+            price:            returnAmount,
+            price_per_person: returnOpt.price,
+            quantity,
             seat_pos:         returnSeatPos,
             seat_side:        returnSeatSide,
             note:             returnNote || undefined,
@@ -532,7 +540,9 @@ export default function CheckoutScreen() {
           origin_label:     outboundOpt.originLabel,
           dest_label:       outboundOpt.destLabel,
           is_overnight:     isOvernightTrip(outboundOpt),
-          price:            outboundOpt.price,
+          price:            outboundAmount,
+          price_per_person: outboundOpt.price,
+          quantity,
           seat_pos:         outboundSeatPos,
           seat_side:        outboundSeatSide,
         } : null,
@@ -549,7 +559,9 @@ export default function CheckoutScreen() {
           origin_label:     returnOpt.originLabel,
           dest_label:       returnOpt.destLabel,
           is_overnight:     isOvernightTrip(returnOpt),
-          price:            returnOpt.price,
+          price:            returnAmount,
+          price_per_person: returnOpt.price,
+          quantity,
           seat_pos:         returnSeatPos,
           seat_side:        returnSeatSide,
         } : null,
@@ -644,6 +656,7 @@ export default function CheckoutScreen() {
             onChangeEnd={v => { setReturnDate(v); setReturnTransportId(null); }}
             onReset={() => { setDepartDate(null); setReturnDate(null); setOutboundTransportId(null); setReturnTransportId(null); }}
             minDate={new Date()}
+            startMaxDate={eventStartAt ? parseISO(eventStartAt.split('T')[0]) : undefined}
             startPlaceholder="Pilih tanggal"
             endPlaceholder="Opsional"
             endOptional
@@ -720,7 +733,10 @@ export default function CheckoutScreen() {
                                 <View style={styles.classBadgeWrap}>
                                   <Text style={styles.classBadgeTxt}>{serviceName !== opt.classBadge ? `${serviceName} · ` : ''}{opt.classBadge}</Text>
                                 </View>
-                                <Text style={[styles.classPrice, isSel && styles.classPriceActive]}>{fmt(opt.price)}</Text>
+                                <View style={{ alignItems: 'flex-end' }}>
+                                  <Text style={[styles.classPrice, isSel && styles.classPriceActive]}>{fmt(opt.price * quantity)}</Text>
+                                  {quantity > 1 && <Text style={{ fontSize: 10, color: '#94A3B8' }}>{fmt(opt.price)}/orang</Text>}
+                                </View>
                                 {isSel && <Text style={styles.classCheck}>✓</Text>}
                               </View>
                               {/* Route */}
@@ -859,7 +875,10 @@ export default function CheckoutScreen() {
                                 <View style={styles.classBadgeWrap}>
                                   <Text style={styles.classBadgeTxt}>{serviceName !== opt.classBadge ? `${serviceName} · ` : ''}{opt.classBadge}</Text>
                                 </View>
-                                <Text style={[styles.classPrice, isSel && styles.classPriceActive]}>{fmt(opt.price)}</Text>
+                                <View style={{ alignItems: 'flex-end' }}>
+                                  <Text style={[styles.classPrice, isSel && styles.classPriceActive]}>{fmt(opt.price * quantity)}</Text>
+                                  {quantity > 1 && <Text style={{ fontSize: 10, color: '#94A3B8' }}>{fmt(opt.price)}/orang</Text>}
+                                </View>
                                 {isSel && <Text style={styles.classCheck}>✓</Text>}
                               </View>
                               <View style={styles.routeRow}>
@@ -1228,18 +1247,22 @@ export default function CheckoutScreen() {
           )}
           {outboundAmount > 0 && (
             <View style={styles.breakdownRow}>
-              <Text style={styles.breakdownLabel}>Transport Pergi ({outboundOpt?.classBadge})</Text>
+              <Text style={styles.breakdownLabel}>
+                Transport Pergi ({outboundOpt?.classBadge}){quantity > 1 ? ` × ${quantity} orang` : ''}
+              </Text>
               <Text style={styles.breakdownVal}>{fmt(outboundAmount)}</Text>
             </View>
           )}
           {returnAmount > 0 && (
             <View style={styles.breakdownRow}>
-              <Text style={styles.breakdownLabel}>Transport Pulang ({returnOpt?.classBadge})</Text>
+              <Text style={styles.breakdownLabel}>
+                Transport Pulang ({returnOpt?.classBadge}){quantity > 1 ? ` × ${quantity} orang` : ''}
+              </Text>
               <Text style={styles.breakdownVal}>{fmt(returnAmount)}</Text>
             </View>
           )}
           <View style={styles.breakdownRow}>
-            <Text style={styles.breakdownLabel}>Biaya Platform (3%)</Text>
+            <Text style={styles.breakdownLabel}>Biaya Layanan (inkl. pajak)</Text>
             <Text style={styles.breakdownVal}>{fmt(platformFee)}</Text>
           </View>
         </View>

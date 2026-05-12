@@ -71,10 +71,36 @@ export default function BookingsScreen() {
         contentContainerStyle={styles.list}
         renderItem={({ item }) => {
           const status = STATUS_LABEL[item.status] ?? STATUS_LABEL.pending;
-          const ticketItem = item.booking_items?.find((i: any) => i.item_type === 'ticket');
-          const event = ticketItem?.ticket_tiers?.events;
-          const hotelItem = item.booking_items?.find((i: any) => i.item_type === 'accommodation');
-          const transportItem = item.booking_items?.find((i: any) => i.item_type === 'transport');
+          const ticketItem    = item.booking_items?.find((i: any) => i.item_type === 'ticket');
+          const event         = ticketItem?.ticket_tiers?.events;
+          const hotelItem     = item.booking_items?.find((i: any) => i.item_type === 'accommodation');
+          const outboundItem  = item.booking_items?.find((i: any) => i.item_type === 'outbound_transport');
+          const returnItem    = item.booking_items?.find((i: any) => i.item_type === 'return_transport');
+          const legacyTransItem = item.booking_items?.find((i: any) => i.item_type === 'transport');
+
+          const ticketSubtotal = ticketItem?.subtotal ?? 0;
+          const platformFee    = item.platform_fee ?? Math.round(ticketSubtotal * 0.03);
+
+          const hotelMeta      = hotelItem?.metadata;
+          const hotelSubtotal  = (() => {
+            const unitPrice = hotelItem?.unit_price;
+            if (!unitPrice) return hotelItem?.subtotal ?? 0;
+            const nights = hotelMeta?.nights
+              ?? (hotelMeta?.check_in && hotelMeta?.check_out
+                  ? Math.max(1, differenceInDays(parseISO(hotelMeta.check_out), parseISO(hotelMeta.check_in)))
+                  : null)
+              ?? (hotelItem?.quantity && hotelItem.quantity > 1 ? hotelItem.quantity : null);
+            if (nights) return unitPrice * nights + (hotelMeta?.extra_fees ?? 0);
+            return hotelItem?.subtotal ?? 0;
+          })();
+
+          const outboundSubtotal   = outboundItem?.subtotal ?? outboundItem?.metadata?.price ?? 0;
+          const returnSubtotal     = returnItem?.subtotal   ?? returnItem?.metadata?.price   ?? 0;
+          const hasNewTransport    = outboundItem || returnItem || outboundSubtotal > 0 || returnSubtotal > 0;
+          const legacyTransSubtotal = (!hasNewTransport && legacyTransItem) ? (legacyTransItem.subtotal ?? 0) : 0;
+
+          const displayTotal = (ticketSubtotal + hotelSubtotal + outboundSubtotal + returnSubtotal + legacyTransSubtotal + platformFee)
+            || (item.total_amount ?? 0);
 
           return (
             <TouchableOpacity
@@ -110,14 +136,14 @@ export default function BookingsScreen() {
                 </View>
 
                 {/* Add-ons */}
-                {(hotelItem || transportItem) && (
+                {(hotelItem || outboundItem || returnItem || legacyTransItem) && (
                   <View style={styles.addonRow}>
                     {hotelItem && (
                       <View style={styles.addonChip}>
                         <Text style={styles.addonText}>🏨 Hotel</Text>
                       </View>
                     )}
-                    {transportItem && (
+                    {(outboundItem || returnItem || legacyTransItem) && (
                       <View style={styles.addonChip}>
                         <Text style={styles.addonText}>🚌 Transport</Text>
                       </View>
@@ -132,7 +158,7 @@ export default function BookingsScreen() {
                     <Text style={styles.totalAmount}>
                       {new Intl.NumberFormat('id-ID', {
                         style: 'currency', currency: 'IDR', maximumFractionDigits: 0,
-                      }).format(item.total_amount)}
+                      }).format(displayTotal)}
                     </Text>
                   </View>
                   <View style={styles.detailBtn}>

@@ -4,7 +4,7 @@ import {
 } from 'react-native';
 import {
   format, startOfMonth, getDaysInMonth, getDay,
-  addMonths, subMonths, isBefore, startOfDay, parseISO, isSameDay,
+  addMonths, subMonths, isBefore, isAfter, startOfDay, parseISO, isSameDay,
 } from 'date-fns';
 import { id as idLocale } from 'date-fns/locale';
 
@@ -21,6 +21,7 @@ interface Props {
   onChangeEnd: (iso: string | null) => void;
   onReset?: () => void;
   minDate?: Date;
+  startMaxDate?: Date;
   startPlaceholder?: string;
   endPlaceholder?: string;
   endOptional?: boolean;
@@ -30,7 +31,7 @@ export default function DateRangePickerField({
   startLabel, endLabel,
   startValue, endValue,
   onChangeStart, onChangeEnd, onReset,
-  minDate, startPlaceholder, endPlaceholder, endOptional,
+  minDate, startMaxDate, startPlaceholder, endPlaceholder, endOptional,
 }: Props) {
   const [open, setOpen]           = useState(false);
   const [selecting, setSelecting] = useState<'start' | 'end'>('start');
@@ -61,6 +62,7 @@ export default function DateRangePickerField({
 
   function isDisabledDay(d: Date): boolean {
     if (minDate && isBefore(d, startOfDay(minDate))) return true;
+    if (selecting === 'start' && startMaxDate && isAfter(d, startOfDay(startMaxDate))) return true;
     if (selecting === 'end' && startDate && isBefore(d, startDate)) return true;
     return false;
   }
