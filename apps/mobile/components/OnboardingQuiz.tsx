@@ -56,11 +56,12 @@ const TOTAL_STEPS = 5;
 
 interface Props {
   onDone: () => void;
+  onSkip?: () => void;
   initialValues?: Partial<UserPreferences>;
   mode?: 'onboarding' | 'edit';
 }
 
-export default function OnboardingQuiz({ onDone, initialValues, mode = 'onboarding' }: Props) {
+export default function OnboardingQuiz({ onDone, onSkip, initialValues, mode = 'onboarding' }: Props) {
   const complete = useCompleteOnboarding();
   const update   = useUpdatePreferences();
 
@@ -110,11 +111,21 @@ export default function OnboardingQuiz({ onDone, initialValues, mode = 'onboardi
   // Available subcategories based on chosen event types
   const availableSubcats = eventTypes.flatMap(t => SUBCATEGORIES[t] ?? []);
 
+  const handleSkip = () => {
+    if (onSkip) onSkip();
+    else onDone();
+  };
+
   return (
     <SafeAreaView style={styles.safe}>
-      {/* Progress bar */}
-      <View style={styles.progressWrap}>
-        <View style={[styles.progressBar, { width: `${((step + 1) / TOTAL_STEPS) * 100}%` }]} />
+      {/* Progress bar + skip */}
+      <View style={styles.progressHeader}>
+        <View style={styles.progressWrap}>
+          <View style={[styles.progressBar, { width: `${((step + 1) / TOTAL_STEPS) * 100}%` }]} />
+        </View>
+        <TouchableOpacity style={styles.skipBtn} onPress={handleSkip} hitSlop={12}>
+          <Text style={styles.skipBtnText}>Lewati</Text>
+        </TouchableOpacity>
       </View>
 
       <ScrollView
@@ -303,8 +314,11 @@ function Chip({
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: '#F8FAFD' },
 
-  progressWrap: { height: 4, backgroundColor: '#EEF3FF', marginHorizontal: 0 },
+  progressHeader: { backgroundColor: '#FFFFFF', paddingHorizontal: 16, paddingTop: 8, paddingBottom: 4, flexDirection: 'row', alignItems: 'center', gap: 12 },
+  progressWrap: { flex: 1, height: 4, backgroundColor: '#EEF3FF', borderRadius: 2 },
   progressBar:  { height: 4, backgroundColor: P, borderRadius: 2, minWidth: 8 },
+  skipBtn:      { paddingVertical: 6, paddingHorizontal: 4 },
+  skipBtnText:  { fontSize: 14, color: '#94A3B8', fontWeight: '600' },
 
   content: { padding: 24, paddingBottom: 12 },
   stepWrap: { alignItems: 'center' },

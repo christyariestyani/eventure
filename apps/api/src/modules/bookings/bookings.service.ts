@@ -188,16 +188,17 @@ export class BookingsService {
         .single();
 
       if (hotel) {
-        const nights = addons.hotel_meta?.nights ?? 1;
+        const nights        = addons.hotel_meta?.nights ?? 1;
+        const extraFees     = addons.hotel_meta?.extra_fees ?? 0;
         const hotelSubtotal = hotel.base_price * Math.max(1, nights);
-        addonTotal += hotelSubtotal;
+        addonTotal += hotelSubtotal + extraFees;
         await supabase.from('booking_items').insert({
           booking_id: booking.id,
           item_type: 'accommodation',
           accommodation_id: addons.hotel_id,
           quantity: nights,
           unit_price: hotel.base_price,
-          subtotal: hotelSubtotal,
+          subtotal: hotelSubtotal,   // base cost only; extra_fees live in metadata
           metadata: {
             name: hotel.name,
             ...addons.hotel_meta,
@@ -331,9 +332,9 @@ export class BookingsService {
     const { data, count, error } = await supabase
       .from('bookings')
       .select(
-        `id, booking_number, status, total_amount, notes, created_at,
+        `id, booking_number, status, total_amount, platform_fee, notes, created_at,
          booking_items(
-           item_type, quantity, subtotal,
+           item_type, quantity, unit_price, subtotal, metadata,
            ticket_tiers(name, events(title, start_at, banner_url, venues(name, city))),
            accommodations(name, city)
          )`,

@@ -207,20 +207,34 @@ export class ItineraryService {
     const hour = eventTime.getHours();
     const fmt = (h: number) => `${String(h).padStart(2, '0')}:00`;
 
+    // 1 hour before event, minimum 05:00
+    const venueHour = Math.max(hour - 1, 5);
+    // Check-in 1 hour before heading to venue
+    const checkInHour = venueHour - 1;
+
     const schedule: ItineraryBundle['day_schedule'] = [];
 
     if (hotel) {
-      schedule.push({
-        time: fmt(Math.max(8, hour - 4)),
-        activity: `Check-in ${hotel.name}`,
-        location: hotel.address,
-      });
+      if (checkInHour < 6) {
+        // For very early events, check-in realistically happens the night before
+        schedule.push({
+          time: 'Malam sebelumnya',
+          activity: `Check-in ${hotel.name}`,
+          location: hotel.address,
+        });
+      } else {
+        schedule.push({
+          time: fmt(checkInHour),
+          activity: `Check-in ${hotel.name}`,
+          location: hotel.address,
+        });
+      }
     }
 
     schedule.push({
-      time: fmt(Math.max(10, hour - 2)),
-      activity: `Tiba di area venue — ${venue.name}`,
-      location: venue.address,
+      time: fmt(venueHour),
+      activity: `Menuju ${venue.name}`,
+      location: hotel ? hotel.address : venue.city,
     });
 
     schedule.push({
@@ -235,7 +249,7 @@ export class ItineraryService {
 
     schedule.push({
       time: fmt(endHour),
-      activity: 'Acara selesai — kembali ke hotel',
+      activity: hotel ? 'Acara selesai — kembali ke hotel' : 'Acara selesai',
       location: hotel ? hotel.address : venue.city,
     });
 
