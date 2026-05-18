@@ -12,8 +12,9 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useInitiatePayment } from '../../../hooks/useBooking';
 import { api } from '../../../services/api';
 import { useQueryClient } from '@tanstack/react-query';
-import { useAccommodations } from '../../../hooks/useAccommodations';
+import { useAccommodations, useRoomTypes, RoomType } from '../../../hooks/useAccommodations';
 import { usePreferences } from '../../../hooks/usePreferences';
+import RoomTypeSheet from '../../../components/RoomTypeSheet';
 import {
   getTransportOptions, formatDuration, MODE_LABEL,
   groupByOperator, optionServiceLabel, isOvernightTrip,
@@ -158,6 +159,11 @@ export default function CheckoutScreen() {
 
   // ── Selection state ────────────────────────────────────────────────────────
   const [selectedHotel,        setSelectedHotel]        = useState<string | null>(preselectedHotelId || null);
+  const [selectedRoomType,     setSelectedRoomType]     = useState<RoomType | null>(null);
+  const [roomSheetHotelId,     setRoomSheetHotelId]     = useState<string | null>(null);
+
+  const { data: roomTypes, isLoading: roomTypesLoading } = useRoomTypes(roomSheetHotelId);
+
   const [outboundTransportId,  setOutboundTransportId]  = useState<string | null>(null);
   const [returnTransportId,    setReturnTransportId]    = useState<string | null>(null);
   const [expandedOutboundOp,   setExpandedOutboundOp]   = useState<string | null>(null);
@@ -408,8 +414,9 @@ export default function CheckoutScreen() {
     ? Math.max(1, differenceInDays(parseISO(checkOutDate), parseISO(checkInDate)))
     : 1;
 
-  const hotelBase = selectedHotel
-    ? (hotels?.find(h => h.id === selectedHotel)?.base_price ?? 0) : 0;
+  const hotelBase = selectedRoomType
+    ? selectedRoomType.price_per_night
+    : selectedHotel ? (hotels?.find(h => h.id === selectedHotel)?.base_price ?? 0) : 0;
   const hotelAmount = hotelBase * nights;
   const earlyFee    = selectedHotel && earlyCheckIn  ? 150000 : 0;
   const lateFee     = selectedHotel && lateCheckOut  ? 100000 : 0;
@@ -473,6 +480,9 @@ export default function CheckoutScreen() {
             late_check_out_time: lateCheckOut ? lateCheckOutTime : null,
             extra_fees:     earlyFee + lateFee,
             note:           hotelNote || undefined,
+            room_type_id:   selectedRoomType?.id,
+            room_type_name: selectedRoomType?.name,
+            room_type_bed:  selectedRoomType?.bed_type,
           } : undefined,
           outbound_meta: outboundOpt ? {
             option_id:        outboundOpt.id,
@@ -1005,7 +1015,15 @@ export default function CheckoutScreen() {
               <TouchableOpacity
                 key={hotel.id}
                 style={[styles.hotelCard, isSelected && styles.hotelCardActive]}
-                onPress={() => setSelectedHotel(isSelected ? null : hotel.id)}
+                onPress={() => {
+                  if (isSelected) {
+                    setSelectedHotel(null);
+                    setSelectedRoomType(null);
+                    setRoomSheetHotelId(null);
+                  } else {
+                    setRoomSheetHotelId(hotel.id);
+                  }
+                }}
                 activeOpacity={0.8}
               >
                 <View style={styles.hotelTop}>
@@ -1026,15 +1044,20 @@ export default function CheckoutScreen() {
                           </View>
                         )}
                       </View>
+                      {isSelected && selectedRoomType && (
+                        <Text style={styles.roomTypeBadge}>{selectedRoomType.name} · {selectedRoomType.bed_type}</Text>
+                      )}
                     </View>
                   </View>
                   <View style={{ alignItems: 'flex-end' }}>
                     <Text style={[styles.hotelPrice, isSelected && styles.hotelPriceActive]}>
-                      {fmt(hotel.base_price)}
+                      {fmt(isSelected && selectedRoomType ? selectedRoomType.price_per_night : hotel.base_price)}
                     </Text>
                     <Text style={styles.perNight}>/malam</Text>
                     {nights > 1 && (
-                      <Text style={styles.totalNights}>{nights} malam = {fmt(hotel.base_price * nights)}</Text>
+                      <Text style={styles.totalNights}>
+                        {nights} malam = {fmt((isSelected && selectedRoomType ? selectedRoomType.price_per_night : hotel.base_price) * nights)}
+                      </Text>
                     )}
                   </View>
                 </View>
@@ -1280,6 +1303,28 @@ export default function CheckoutScreen() {
         </TouchableOpacity>
       </View>
 
+      {/* ── Room Type Sheet ── */}
+      {roomSheetHotelId && (() => {
+        const sheetHotel = (hotels ?? []).find(h => h.id === roomSheetHotelId);
+        return (
+          <RoomTypeSheet
+            visible={!!roomSheetHotelId}
+            hotelName={sheetHotel?.name ?? ''}
+            hotelStars={sheetHotel?.star_rating ?? 0}
+            rooms={roomTypes ?? []}
+            isLoading={roomTypesLoading}
+            selectedRoomId={selectedRoomType?.id ?? null}
+            nights={nights}
+            onSelect={room => {
+              setSelectedHotel(roomSheetHotelId);
+              setSelectedRoomType(room);
+              setRoomSheetHotelId(null);
+            }}
+            onClose={() => setRoomSheetHotelId(null)}
+          />
+        );
+      })()}
+
       {/* ── Hotel Sort & Filter Modal ── */}
       <Modal visible={showHotelModal} transparent animationType="slide" onRequestClose={() => setShowHotelModal(false)}>
         <TouchableOpacity style={styles.modalOverlay} activeOpacity={1} onPress={() => setShowHotelModal(false)}>
@@ -1484,7 +1529,8 @@ const styles = StyleSheet.create({
   hotelPrice:  { fontSize: 14, fontWeight: '800', color: '#6B7280' },
   hotelPriceActive: { color: BLUE },
   perNight:    { fontSize: 11, color: '#9CA3AF' },
-  totalNights: { fontSize: 11, color: BLUE, fontWeight: '700', marginTop: 2 },
+  totalNights:    { fontSize: 11, color: BLUE, fontWeight: '700', marginTop: 2 },
+  roomTypeBadge:  { fontSize: 11, color: BLUE, fontWeight: '600', marginTop: 3 },
 
   distBadge:       { backgroundColor: '#EFF6FF', paddingHorizontal: 7, paddingVertical: 2, borderRadius: 6 },
   distBadgeActive: { backgroundColor: 'rgba(29,99,237,0.1)' },
