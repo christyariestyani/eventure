@@ -1,6 +1,19 @@
 import { useQuery } from '@tanstack/react-query';
 import { api } from '../services/api';
 
+export interface RoomType {
+  id: string;
+  name: string;
+  description: string | null;
+  bed_type: string;
+  max_occupancy: number;
+  price_per_night: number;
+  amenities: string[];
+  image_urls: string[];
+  is_available: boolean;
+  sort_order: number;
+}
+
 export interface Accommodation {
   id: string;
   name: string;
@@ -24,6 +37,17 @@ export function useAccommodations(city?: string, venueLat?: number, venueLng?: n
       if (venueLng != null) params.lng = venueLng;
       return api.get('/accommodations', { params }).then(res => res.data.data as Accommodation[]);
     },
+    staleTime: 5 * 60 * 1000,
+  });
+}
+
+export function useRoomTypes(accommodationId: string | null) {
+  return useQuery({
+    queryKey: ['room_types', accommodationId],
+    queryFn: () =>
+      api.get(`/accommodations/${accommodationId}/rooms`)
+        .then(res => res.data.data as RoomType[]),
+    enabled: !!accommodationId,
     staleTime: 5 * 60 * 1000,
   });
 }
