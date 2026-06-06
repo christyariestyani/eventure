@@ -85,7 +85,7 @@ export async function authRoutes(fastify: FastifyInstance) {
 
   // GET /api/v1/auth/me
   fastify.get('/me', { preHandler: requireAuth }, async (request, reply) => {
-    const { id } = (request as any).user as { id: string };
+    const { id } = (request as any).user as { id: number };
 
     const { data: user } = await supabase
       .from('users')

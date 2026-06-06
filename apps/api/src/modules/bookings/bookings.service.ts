@@ -8,7 +8,7 @@ import type { CreateBookingDTO } from './bookings.schema';
 const PLATFORM_FEE_RATE = 0.03;
 
 export class BookingsService {
-  async createBooking(userId: string, payload: CreateBookingDTO) {
+  async createBooking(userId: number, payload: CreateBookingDTO) {
     const { ticket_tier_id, quantity, accommodation_id, accommodation_meta } = payload;
 
     const { data: tier, error: tierError } = await supabase
@@ -127,8 +127,8 @@ export class BookingsService {
 
       const { redis } = await import('../../lib/redis');
       const { LOCK_KEY } = await import('../../lib/redis');
-      await redis.rename(LOCK_KEY(ticket_tier_id, 'temp'), LOCK_KEY(ticket_tier_id, booking.id));
-      await redis.expire(LOCK_KEY(ticket_tier_id, booking.id), 900);
+      await redis.rename(LOCK_KEY(String(ticket_tier_id), 'temp'), LOCK_KEY(String(ticket_tier_id), String(booking.id)));
+      await redis.expire(LOCK_KEY(String(ticket_tier_id), String(booking.id)), 900);
 
       void Promise.resolve(
         supabase.rpc('increment_reserved_quota', { p_tier_id: ticket_tier_id, p_quantity: quantity })
@@ -150,7 +150,7 @@ export class BookingsService {
 
   async addAddons(
     bookingNumber: string,
-    userId: string,
+    userId: number,
     addons: {
       hotel_id?: string;
       transport_price?: number;
@@ -264,7 +264,7 @@ export class BookingsService {
     return { ok: true };
   }
 
-  async initiatePayment(bookingNumber: string, userId: string) {
+  async initiatePayment(bookingNumber: string, userId: number) {
     const { data: booking } = await supabase
       .from('bookings')
       .select('*, users(full_name, email, phone)')
@@ -307,7 +307,7 @@ export class BookingsService {
     return { payment_token: paymentToken, booking_number: booking.booking_number };
   }
 
-  async getBookingDetail(bookingNumber: string, userId: string) {
+  async getBookingDetail(bookingNumber: string, userId: number) {
     const { data: booking, error } = await supabase
       .from('bookings')
       .select(`
@@ -327,7 +327,7 @@ export class BookingsService {
     return booking;
   }
 
-  async getUserBookings(userId: string, page = 1, limit = 20) {
+  async getUserBookings(userId: number, page = 1, limit = 20) {
     const offset = (page - 1) * limit;
     const { data, count, error } = await supabase
       .from('bookings')

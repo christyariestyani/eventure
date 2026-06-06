@@ -27,7 +27,7 @@ const WEIGHTS: Record<BehaviorAction, number> = {
 
 export class BehaviorService {
   async track(
-    userId: string,
+    userId: number,
     eventId: string,
     action: BehaviorAction,
     dwellMs?: number,
@@ -56,7 +56,7 @@ export class BehaviorService {
     }
   }
 
-  async getAffinityMap(userId: string): Promise<AffinityMap> {
+  async getAffinityMap(userId: number): Promise<AffinityMap> {
     const { data } = await supabase
       .from('user_behavior')
       .select('action, dwell_ms, events(category, tags)')
@@ -87,7 +87,7 @@ export class BehaviorService {
     return { categories, tags };
   }
 
-  async getSavedEventIds(userId: string): Promise<string[]> {
+  async getSavedEventIds(userId: number): Promise<string[]> {
     const { data } = await supabase
       .from('saved_events')
       .select('event_id')
@@ -95,7 +95,7 @@ export class BehaviorService {
     return (data ?? []).map(r => r.event_id);
   }
 
-  async getViewedEventIds(userId: string, limit = 50): Promise<string[]> {
+  async getViewedEventIds(userId: number, limit = 50): Promise<string[]> {
     const { data } = await supabase
       .from('user_behavior')
       .select('event_id')

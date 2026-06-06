@@ -22,7 +22,7 @@ const BUDGET_RANGES: Record<UserPreferences['budget_tier'], [number, number]> = 
 };
 
 export class PreferencesService {
-  async get(userId: string): Promise<UserPreferences> {
+  async get(userId: number): Promise<UserPreferences> {
     const { data } = await supabase
       .from('user_preferences')
       .select('*')
@@ -32,7 +32,7 @@ export class PreferencesService {
     return (data as UserPreferences | null) ?? this.defaults();
   }
 
-  async upsert(userId: string, patch: Partial<UserPreferences>): Promise<UserPreferences> {
+  async upsert(userId: number, patch: Partial<UserPreferences>): Promise<UserPreferences> {
     const existing = await this.get(userId);
     const merged = { ...existing, ...patch };
 
@@ -51,7 +51,7 @@ export class PreferencesService {
     return data as UserPreferences;
   }
 
-  async completeOnboarding(userId: string, prefs: Omit<UserPreferences, 'onboarding_done'>): Promise<UserPreferences> {
+  async completeOnboarding(userId: number, prefs: Omit<UserPreferences, 'onboarding_done'>): Promise<UserPreferences> {
     return this.upsert(userId, { ...prefs, onboarding_done: true });
   }
 

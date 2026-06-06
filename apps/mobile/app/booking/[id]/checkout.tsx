@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import {
   View, Text, ScrollView, TouchableOpacity,
-  StyleSheet, SafeAreaView, Alert, ActivityIndicator, Modal,
+  StyleSheet, SafeAreaView, Alert, ActivityIndicator, Modal, TextInput,
 } from 'react-native';
 import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
 import {
@@ -123,6 +123,17 @@ type PriceRange      = typeof PRICE_RANGES[number]['value'];
 type DistanceFilter  = typeof DISTANCE_FILTERS[number]['value'];
 type TransportFilter = typeof TRANSPORT_MODES[number]['value'];
 
+interface Attendee {
+  name:      string;
+  id_type:   'ktp' | 'paspor';
+  id_number: string;
+}
+
+const ID_TYPES = [
+  { value: 'ktp'   as const, label: 'KTP'    },
+  { value: 'paspor'as const, label: 'Paspor' },
+];
+
 // ─── Component ───────────────────────────────────────────────────────────────
 
 export default function CheckoutScreen() {
@@ -158,9 +169,10 @@ export default function CheckoutScreen() {
   );
 
   // ── Selection state ────────────────────────────────────────────────────────
-  const [selectedHotel,        setSelectedHotel]        = useState<string | null>(preselectedHotelId || null);
+  const preselectedHotelNum = preselectedHotelId ? parseInt(preselectedHotelId, 10) : null;
+  const [selectedHotel,        setSelectedHotel]        = useState<number | null>(preselectedHotelNum || null);
   const [selectedRoomType,     setSelectedRoomType]     = useState<RoomType | null>(null);
-  const [roomSheetHotelId,     setRoomSheetHotelId]     = useState<string | null>(null);
+  const [roomSheetHotelId,     setRoomSheetHotelId]     = useState<number | null>(null);
 
   const { data: roomTypes, isLoading: roomTypesLoading } = useRoomTypes(roomSheetHotelId);
 
@@ -188,6 +200,19 @@ export default function CheckoutScreen() {
   const [earlyCheckInTime, setEarlyCheckInTime] = useState('11:00');
   const [lateCheckOut,     setLateCheckOut]     = useState(false);
   const [lateCheckOutTime, setLateCheckOutTime] = useState('14:00');
+
+  // ── Data pemesan & peserta ────────────────────────────────────────────────
+  const [contactName,  setContactName]  = useState('');
+  const [contactEmail, setContactEmail] = useState('');
+  const [contactPhone, setContactPhone] = useState('');
+  const [attendees,    setAttendees]    = useState<Attendee[]>(() =>
+    Array.from({ length: Math.max(1, parseInt(qty ?? '1', 10)) }, () =>
+      ({ name: '', id_type: 'ktp', id_number: '' })
+    )
+  );
+
+  const updateAttendee = (idx: number, field: keyof Attendee, value: string) =>
+    setAttendees(prev => prev.map((a, i) => i === idx ? { ...a, [field]: value } : a));
 
   // ── Special requests ───────────────────────────────────────────────────────
   const [outboundNote, setOutboundNote] = useState('');
@@ -460,72 +485,90 @@ export default function CheckoutScreen() {
   // ── Pay ────────────────────────────────────────────────────────────────────
 
   const handlePay = async () => {
+    if (!contactName.trim()) {
+      Alert.alert('Data Pemesan', 'Nama pemesan wajib diisi.');
+      return;
+    }
+    if (!contactEmail.trim() || !contactEmail.includes('@')) {
+      Alert.alert('Data Pemesan', 'Email pemesan tidak valid.');
+      return;
+    }
+    if (!contactPhone.trim()) {
+      Alert.alert('Data Pemesan', 'Nomor HP pemesan wajib diisi.');
+      return;
+    }
+    const emptyAttendee = attendees.findIndex(a => !a.name.trim() || !a.id_number.trim());
+    if (emptyAttendee >= 0) {
+      Alert.alert('Data Peserta', `Lengkapi nama dan nomor identitas peserta ${emptyAttendee + 1}.`);
+      return;
+    }
     if (!selectedPayment) {
       Alert.alert('Pilih Pembayaran', 'Silakan pilih metode pembayaran terlebih dahulu.');
       return;
     }
     setLoading(true);
     try {
-      if (selectedHotel || outboundOpt || returnOpt) {
-        await api.patch(`/bookings/${id}/addons`, {
-          hotel_id:        selectedHotel ?? undefined,
-          transport_price: transportAmount || undefined,
-          hotel_meta: selectedHotel ? {
-            check_in:       checkInDate,
-            check_out:      checkOutDate,
-            nights,
-            early_check_in: earlyCheckIn,
-            early_check_in_time: earlyCheckIn ? earlyCheckInTime : null,
-            late_check_out: lateCheckOut,
-            late_check_out_time: lateCheckOut ? lateCheckOutTime : null,
-            extra_fees:     earlyFee + lateFee,
-            note:           hotelNote || undefined,
-            room_type_id:   selectedRoomType?.id,
-            room_type_name: selectedRoomType?.name,
-            room_type_bed:  selectedRoomType?.bed_type,
-          } : undefined,
-          outbound_meta: outboundOpt ? {
-            option_id:        outboundOpt.id,
-            operator:         outboundOpt.operator,
-            class:            outboundOpt.classBadge,
-            mode:             outboundOpt.mode,
-            icon:             outboundOpt.icon,
-            depart_date:      departDate,
-            departure_time:   outboundOpt.departureTime,
-            arrival_time:     outboundOpt.arrivalTime,
-            duration_minutes: outboundOpt.durationMinutes,
-            origin_label:     outboundOpt.originLabel,
-            dest_label:       outboundOpt.destLabel,
-            is_overnight:     isOvernightTrip(outboundOpt),
-            price:            outboundAmount,
-            price_per_person: outboundOpt.price,
-            quantity,
-            seat_pos:         outboundSeatPos,
-            seat_side:        outboundSeatSide,
-            note:             outboundNote || undefined,
-          } : undefined,
-          return_meta: returnOpt ? {
-            option_id:        returnOpt.id,
-            operator:         returnOpt.operator,
-            class:            returnOpt.classBadge,
-            mode:             returnOpt.mode,
-            icon:             returnOpt.icon,
-            depart_date:      returnDate,
-            departure_time:   returnOpt.departureTime,
-            arrival_time:     returnOpt.arrivalTime,
-            duration_minutes: returnOpt.durationMinutes,
-            origin_label:     returnOpt.originLabel,
-            dest_label:       returnOpt.destLabel,
-            is_overnight:     isOvernightTrip(returnOpt),
-            price:            returnAmount,
-            price_per_person: returnOpt.price,
-            quantity,
-            seat_pos:         returnSeatPos,
-            seat_side:        returnSeatSide,
-            note:             returnNote || undefined,
-          } : undefined,
-        });
-      }
+      // Selalu patch: simpan data pemesan, peserta, dan addons
+      await api.patch(`/bookings/${id}/addons`, {
+        contact: { name: contactName, email: contactEmail, phone: contactPhone },
+        attendees,
+        hotel_id:        selectedHotel ?? undefined,
+        transport_price: transportAmount || undefined,
+        hotel_meta: selectedHotel ? {
+          check_in:            checkInDate,
+          check_out:           checkOutDate,
+          nights,
+          early_check_in:      earlyCheckIn,
+          early_check_in_time: earlyCheckIn ? earlyCheckInTime : null,
+          late_check_out:      lateCheckOut,
+          late_check_out_time: lateCheckOut ? lateCheckOutTime : null,
+          extra_fees:          earlyFee + lateFee,
+          note:                hotelNote || undefined,
+          room_type_id:        selectedRoomType?.id,
+          room_type_name:      selectedRoomType?.name,
+          room_type_bed:       selectedRoomType?.bed_type,
+        } : undefined,
+        outbound_meta: outboundOpt ? {
+          option_id:        outboundOpt.id,
+          operator:         outboundOpt.operator,
+          class:            outboundOpt.classBadge,
+          mode:             outboundOpt.mode,
+          icon:             outboundOpt.icon,
+          depart_date:      departDate,
+          departure_time:   outboundOpt.departureTime,
+          arrival_time:     outboundOpt.arrivalTime,
+          duration_minutes: outboundOpt.durationMinutes,
+          origin_label:     outboundOpt.originLabel,
+          dest_label:       outboundOpt.destLabel,
+          is_overnight:     isOvernightTrip(outboundOpt),
+          price:            outboundAmount,
+          price_per_person: outboundOpt.price,
+          quantity,
+          seat_pos:         outboundSeatPos,
+          seat_side:        outboundSeatSide,
+          note:             outboundNote || undefined,
+        } : undefined,
+        return_meta: returnOpt ? {
+          option_id:        returnOpt.id,
+          operator:         returnOpt.operator,
+          class:            returnOpt.classBadge,
+          mode:             returnOpt.mode,
+          icon:             returnOpt.icon,
+          depart_date:      returnDate,
+          departure_time:   returnOpt.departureTime,
+          arrival_time:     returnOpt.arrivalTime,
+          duration_minutes: returnOpt.durationMinutes,
+          origin_label:     returnOpt.originLabel,
+          dest_label:       returnOpt.destLabel,
+          is_overnight:     isOvernightTrip(returnOpt),
+          price:            returnAmount,
+          price_per_person: returnOpt.price,
+          quantity,
+          seat_pos:         returnSeatPos,
+          seat_side:        returnSeatSide,
+          note:             returnNote || undefined,
+        } : undefined,
+      });
       await initiatePayment.mutateAsync(id);
       queryClient.invalidateQueries({ queryKey: ['bookings'] });
 
@@ -652,6 +695,97 @@ export default function CheckoutScreen() {
               <Text style={[styles.summaryValue, { color: BLUE, fontWeight: '700' }]}>{fmt(ticketAmount)}</Text>
             </View>
           </View>
+        </View>
+
+        {/* ── Data Pemesan ── */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Data Pemesan</Text>
+          <View style={styles.formCard}>
+            <Text style={styles.formHelper}>Konfirmasi booking dikirim ke kontak di bawah</Text>
+
+            <Text style={styles.fieldLabel}>Nama Lengkap <Text style={styles.required}>*</Text></Text>
+            <TextInput
+              style={[styles.fieldInput, !contactName && styles.fieldInputEmpty]}
+              placeholder="Sesuai KTP / paspor"
+              placeholderTextColor="#9CA3AF"
+              value={contactName}
+              onChangeText={setContactName}
+              autoCapitalize="words"
+            />
+
+            <Text style={styles.fieldLabel}>Email <Text style={styles.required}>*</Text></Text>
+            <TextInput
+              style={[styles.fieldInput, !contactEmail && styles.fieldInputEmpty]}
+              placeholder="contoh@email.com"
+              placeholderTextColor="#9CA3AF"
+              value={contactEmail}
+              onChangeText={setContactEmail}
+              keyboardType="email-address"
+              autoCapitalize="none"
+            />
+
+            <Text style={styles.fieldLabel}>Nomor HP <Text style={styles.required}>*</Text></Text>
+            <TextInput
+              style={[styles.fieldInput, !contactPhone && styles.fieldInputEmpty]}
+              placeholder="08xxxxxxxxxx"
+              placeholderTextColor="#9CA3AF"
+              value={contactPhone}
+              onChangeText={setContactPhone}
+              keyboardType="phone-pad"
+            />
+          </View>
+        </View>
+
+        {/* ── Data Peserta ── */}
+        <View style={styles.section}>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>Data Peserta</Text>
+            <View style={styles.optionalBadge}>
+              <Text style={styles.optionalText}>{quantity} Tiket</Text>
+            </View>
+          </View>
+
+          {attendees.map((att, idx) => (
+            <View key={idx} style={styles.formCard}>
+              <Text style={styles.attendeeTitle}>Peserta {idx + 1}</Text>
+
+              <Text style={styles.fieldLabel}>Nama Lengkap <Text style={styles.required}>*</Text></Text>
+              <TextInput
+                style={[styles.fieldInput, !att.name && styles.fieldInputEmpty]}
+                placeholder="Sesuai identitas"
+                placeholderTextColor="#9CA3AF"
+                value={att.name}
+                onChangeText={v => updateAttendee(idx, 'name', v)}
+                autoCapitalize="words"
+              />
+
+              <Text style={styles.fieldLabel}>Jenis Identitas <Text style={styles.required}>*</Text></Text>
+              <View style={styles.idTypeRow}>
+                {ID_TYPES.map(t => (
+                  <TouchableOpacity
+                    key={t.value}
+                    style={[styles.idTypeBtn, att.id_type === t.value && styles.idTypeBtnActive]}
+                    onPress={() => updateAttendee(idx, 'id_type', t.value)}
+                    activeOpacity={0.8}
+                  >
+                    <Text style={[styles.idTypeTxt, att.id_type === t.value && styles.idTypeTxtActive]}>
+                      {t.label}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+
+              <Text style={styles.fieldLabel}>Nomor {att.id_type === 'ktp' ? 'KTP' : 'Paspor'} <Text style={styles.required}>*</Text></Text>
+              <TextInput
+                style={[styles.fieldInput, !att.id_number && styles.fieldInputEmpty]}
+                placeholder={att.id_type === 'ktp' ? '16 digit NIK' : 'Nomor paspor'}
+                placeholderTextColor="#9CA3AF"
+                value={att.id_number}
+                onChangeText={v => updateAttendee(idx, 'id_number', v)}
+                keyboardType={att.id_type === 'ktp' ? 'numeric' : 'default'}
+              />
+            </View>
+          ))}
         </View>
 
         {/* ── Tanggal Perjalanan ── */}
@@ -1032,7 +1166,7 @@ export default function CheckoutScreen() {
                     <View style={{ flex: 1 }}>
                       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
                         <Text style={styles.hotelName} numberOfLines={1}>{hotel.name}</Text>
-                        {hotel.id === preselectedHotelId && (
+                        {hotel.id === preselectedHotelNum && (
                           <Text style={styles.itineraryTag}>✨</Text>
                         )}
                       </View>
@@ -1668,4 +1802,32 @@ const styles = StyleSheet.create({
   resetText: { fontSize: 14, fontWeight: '700', color: '#374151' },
   applyBtn:  { flex: 2, paddingVertical: 14, borderRadius: 12, backgroundColor: BLUE, alignItems: 'center' },
   applyText: { fontSize: 14, fontWeight: '700', color: '#FFFFFF' },
+
+  // ── Form peserta ────────────────────────────────────────────────────────────
+  formCard: {
+    backgroundColor: '#FFFFFF', borderRadius: 14,
+    borderWidth: 1, borderColor: '#E5E7EB',
+    padding: 16, marginBottom: 10,
+  },
+  formHelper: { fontSize: 12, color: '#9CA3AF', marginBottom: 14 },
+  attendeeTitle: { fontSize: 14, fontWeight: '800', color: '#111827', marginBottom: 12 },
+
+  fieldLabel:    { fontSize: 12, fontWeight: '600', color: '#374151', marginBottom: 6, marginTop: 10 },
+  required:      { color: '#EF4444' },
+  fieldInput: {
+    borderWidth: 1.5, borderColor: '#E5E7EB', borderRadius: 10,
+    paddingHorizontal: 14, paddingVertical: 11,
+    fontSize: 14, color: '#111827', backgroundColor: '#FAFAFA',
+  },
+  fieldInputEmpty: { borderColor: '#E5E7EB' },
+
+  idTypeRow: { flexDirection: 'row', gap: 10 },
+  idTypeBtn: {
+    flex: 1, paddingVertical: 10, borderRadius: 10,
+    borderWidth: 1.5, borderColor: '#E5E7EB',
+    alignItems: 'center', backgroundColor: '#FAFAFA',
+  },
+  idTypeBtnActive: { borderColor: BLUE, backgroundColor: '#EFF6FF' },
+  idTypeTxt:       { fontSize: 13, fontWeight: '600', color: '#6B7280' },
+  idTypeTxtActive: { color: BLUE },
 });

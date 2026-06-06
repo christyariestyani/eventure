@@ -49,11 +49,13 @@ export async function accommodationsRoutes(fastify: FastifyInstance) {
   // GET /accommodations/:id/rooms — tipe kamar untuk satu hotel
   fastify.get('/:id/rooms', async (request, reply) => {
     const { id } = request.params as { id: string };
+    const numId = parseInt(id, 10);
+    if (isNaN(numId)) return reply.status(400).send({ error: 'Invalid accommodation ID' });
 
     const { data, error } = await supabase
       .from('room_types')
       .select('id, name, description, bed_type, max_occupancy, price_per_night, amenities, image_urls, is_available, sort_order')
-      .eq('accommodation_id', id)
+      .eq('accommodation_id', numId)
       .eq('is_available', true)
       .order('sort_order', { ascending: true });
 

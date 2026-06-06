@@ -1,9 +1,9 @@
 import { z } from 'zod';
 
 export const CreateBookingSchema = z.object({
-  ticket_tier_id: z.string().uuid(),
+  ticket_tier_id: z.number().int().positive(),
   quantity: z.number().int().min(1).max(10),
-  accommodation_id: z.string().uuid().optional(),
+  accommodation_id: z.number().int().positive().optional(),
   accommodation_meta: z
     .object({
       check_in: z.string().date(),

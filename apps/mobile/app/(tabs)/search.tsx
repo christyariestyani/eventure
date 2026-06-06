@@ -40,7 +40,7 @@ export default function SearchScreen() {
 
       <FlatList
         data={events}
-        keyExtractor={item => item.id}
+        keyExtractor={item => String(item.id)}
         contentContainerStyle={styles.list}
         renderItem={({ item }) => (
           <EventCard event={item} onPress={() => router.push(`/event/${item.id}`)} />

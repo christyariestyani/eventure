@@ -3,7 +3,7 @@ import { api } from '../services/api';
 
 export interface ItineraryBundle {
   event: {
-    id: string;
+    id: number;
     title: string;
     category: string;
     start_at: string;
@@ -12,7 +12,7 @@ export interface ItineraryBundle {
     venue: { name: string; city: string; address: string; latitude: number; longitude: number };
   };
   recommended_ticket: {
-    id: string;
+    id: number;
     name: string;
     price: number;
     available_quota: number;
@@ -42,7 +42,7 @@ export interface ItineraryBundle {
   day_schedule: Array<{ time: string; activity: string; location: string }>;
 }
 
-export function useItinerary(eventId: string | null) {
+export function useItinerary(eventId: number | null) {
   return useQuery<ItineraryBundle>({
     queryKey: ['itinerary', eventId],
     queryFn: () => api.get(`/itinerary/${eventId}`).then(r => r.data.data),

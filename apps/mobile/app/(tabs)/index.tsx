@@ -49,7 +49,7 @@ export default function DiscoverScreen() {
     (handleSearchChange as any)._t = setTimeout(() => setDebouncedQ(text), 400);
   };
 
-  const goEvent = useCallback((id: string) => {
+  const goEvent = useCallback((id: number) => {
     track(id, 'view');
     router.push(`/event/${id}`);
   }, [track, router]);
@@ -161,7 +161,7 @@ export default function DiscoverScreen() {
         /* Search / Category filter results */
         <FlatList
           data={events}
-          keyExtractor={item => item.id}
+          keyExtractor={item => String(item.id)}
           refreshControl={
             <RefreshControl
               refreshing={isLoading || isRefetching}
@@ -193,7 +193,7 @@ export default function DiscoverScreen() {
 function FeedSection({
   title, events, onPress, horizontal,
 }: {
-  title: string; events: ApiEvent[]; onPress: (id: string) => void; horizontal?: boolean;
+  title: string; events: ApiEvent[]; onPress: (id: number) => void; horizontal?: boolean;
 }) {
   return (
     <View style={styles.section}>
@@ -208,7 +208,7 @@ function FeedSection({
           contentContainerStyle={{ gap: 14, paddingRight: 4, paddingBottom: 4 }}
         >
           {events.slice(0, 6).map(item => (
-            <View key={item.id} style={{ width: 265 }}>
+            <View key={String(item.id)} style={{ width: 265 }}>
               <EventCard event={item} onPress={() => onPress(item.id)} />
             </View>
           ))}
@@ -216,7 +216,7 @@ function FeedSection({
       ) : (
         <View style={{ gap: 14 }}>
           {events.slice(0, 5).map(item => (
-            <EventCard key={item.id} event={item} onPress={() => onPress(item.id)} />
+            <EventCard key={String(item.id)} event={item} onPress={() => onPress(item.id)} />
           ))}
         </View>
       )}
@@ -227,7 +227,7 @@ function FeedSection({
 function UpcomingSection({
   events, onPress, isLoading,
 }: {
-  events: ApiEvent[]; onPress: (id: string) => void; isLoading: boolean;
+  events: ApiEvent[]; onPress: (id: number) => void; isLoading: boolean;
 }) {
   if (isLoading) return null;
   return (
@@ -238,7 +238,7 @@ function UpcomingSection({
       <View style={{ gap: 14 }}>
         {events.length > 0
           ? events.map(item => (
-              <EventCard key={item.id} event={item} onPress={() => onPress(item.id)} />
+              <EventCard key={String(item.id)} event={item} onPress={() => onPress(item.id)} />
             ))
           : (
             <View style={styles.empty}>

@@ -13,7 +13,7 @@ export type BehaviorAction =
 
 // Fire-and-forget — never throws, never blocks UI
 async function sendBehavior(
-  eventId: string,
+  eventId: number,
   action: BehaviorAction,
   dwellMs?: number,
 ) {
@@ -32,7 +32,7 @@ export function useTrackBehavior() {
   const user = useAuthStore(s => s.user);
 
   const track = useCallback(
-    (eventId: string, action: BehaviorAction, dwellMs?: number) => {
+    (eventId: number, action: BehaviorAction, dwellMs?: number) => {
       if (!user) return;
       sendBehavior(eventId, action, dwellMs);
     },
@@ -44,7 +44,7 @@ export function useTrackBehavior() {
 
 // Hook for dwell-time tracking on a detail screen.
 // Call startDwell() on mount, stopDwell() on unmount.
-export function useDwellTracker(eventId: string) {
+export function useDwellTracker(eventId: number) {
   const user = useAuthStore(s => s.user);
   const startRef = useRef<number>(0);
 

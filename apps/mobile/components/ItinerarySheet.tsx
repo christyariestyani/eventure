@@ -18,7 +18,7 @@ const fmt = (n: number) =>
   }).format(n);
 
 interface Props {
-  eventId: string | null;
+  eventId: number | null;
   visible: boolean;
   onClose: () => void;
 }

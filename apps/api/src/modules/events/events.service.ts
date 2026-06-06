@@ -46,8 +46,8 @@ export class EventsService {
     return result;
   }
 
-  async getEventById(id: string) {
-    const cacheKey = EVENT_CACHE_KEY(id);
+  async getEventById(id: number) {
+    const cacheKey = EVENT_CACHE_KEY(String(id));
     const cached = await redis.get<string>(cacheKey);
     if (cached) return typeof cached === 'string' ? JSON.parse(cached) : cached;
 
@@ -68,8 +68,8 @@ export class EventsService {
     return formatted;
   }
 
-  async invalidateEventCache(eventId: string) {
-    await redis.del(EVENT_CACHE_KEY(eventId));
+  async invalidateEventCache(eventId: number) {
+    await redis.del(EVENT_CACHE_KEY(String(eventId)));
   }
 
   private formatEvent(event: any) {

@@ -17,7 +17,9 @@ export async function eventsRoutes(fastify: FastifyInstance) {
 
   fastify.get('/:id', async (request, reply) => {
     const { id } = request.params as { id: string };
-    const event = await service.getEventById(id);
+    const numId = parseInt(id, 10);
+    if (isNaN(numId)) return reply.status(400).send({ error: 'Invalid event ID' });
+    const event = await service.getEventById(numId);
     if (!event) return reply.status(404).send({ error: 'Event not found' });
     return reply.send({ data: event });
   });

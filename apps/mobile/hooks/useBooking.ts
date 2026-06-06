@@ -2,9 +2,9 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '../services/api';
 
 interface CreateBookingPayload {
-  ticket_tier_id: string;
+  ticket_tier_id: number;
   quantity: number;
-  accommodation_id?: string;
+  accommodation_id?: number;
   accommodation_meta?: {
     check_in: string;
     check_out: string;
