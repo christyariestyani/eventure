@@ -443,6 +443,9 @@ export default function BookingDetailScreen() {
       ? Math.max(1, differenceInDays(parseISO(hotelMeta.check_out), parseISO(hotelMeta.check_in)))
       : null);
 
+  // Hotel room quantity display
+  const hotelRoomQty = Math.max(1, hotelMeta?.room_qty)
+
   // ── Subtotal computations ─────────────────────────────────────────────────
   const lp = localPlan?.subtotals ?? null;
 
@@ -457,7 +460,7 @@ export default function BookingDetailScreen() {
           ? Math.max(1, differenceInDays(parseISO(hotelMeta.check_out), parseISO(hotelMeta.check_in)))
           : null)
       ?? (hotelItem?.quantity && hotelItem.quantity > 1 ? hotelItem.quantity : null);
-    if (nights) return unitPrice * nights + (hotelMeta?.extra_fees ?? 0);
+    if (nights || hotelRoomQty) return unitPrice * Math.max(1, nights) * Math.max(1, hotelRoomQty) + (hotelMeta?.extra_fees ?? 0);
     return hotelItem?.subtotal ?? 0;
   })();
 
@@ -797,7 +800,7 @@ export default function BookingDetailScreen() {
             {hotelSubtotal > 0 && (
               <View style={styles.breakdownRow}>
                 <Text style={styles.breakdownLabel}>
-                  Penginapan{hotelNights ? ` (${hotelNights} malam)` : ''}
+                  Penginapan {hotelRoomQty} kamar{hotelNights ? ` (${hotelNights} malam)` : ''}
                 </Text>
                 <Text style={styles.breakdownVal}>{fmt(hotelSubtotal)}</Text>
               </View>
