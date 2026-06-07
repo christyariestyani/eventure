@@ -6,6 +6,7 @@ import {
 import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
 import {
   differenceInDays, parseISO, addDays, isAfter, isSameDay, format,
+  set,
 } from 'date-fns';
 import { id as idLocale } from 'date-fns/locale';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -188,8 +189,8 @@ export default function CheckoutScreen() {
   const [pendingHotelRooms, setPendingHotelRooms] = useState(1);
   const [hotelQtyModal, setHotelQtyModal] = useState<{
     visible: boolean;
-    hotelId: number | null;
-  }>({ visible: false, hotelId: null });
+    room: RoomType | null;
+  }>({ visible: false, room: null });
 
   // ── Ticket quantity popup ─────────────────────────────────────────────────
   const [ticketQtyModal, setTicketQtyModal] = useState<{
@@ -497,17 +498,14 @@ export default function CheckoutScreen() {
     setPendingDist('all');
   };
 
-  const openHotelQtyModal = (hotelId: number) => {
+  const openHotelQtyModal = (room: RoomType) => {
     setPendingHotelRooms(hotelRoomsQty);
-    setHotelQtyModal({ visible: true, hotelId });
+    setHotelQtyModal({ visible: true, room });
   };
 
   const confirmHotelRooms = () => {
-    if (hotelQtyModal.hotelId) {
-      setHotelRoomsQty(pendingHotelRooms);
-      setRoomSheetHotelId(hotelQtyModal.hotelId);
-    }
-    setHotelQtyModal({ visible: false, hotelId: null });
+    setHotelRoomsQty(pendingHotelRooms);
+    setHotelQtyModal({ visible: false, room: null });
   };
 
   const openTicketQtyModal = (type: 'outbound' | 'return', opt: TransportOption) => {
@@ -1212,7 +1210,7 @@ export default function CheckoutScreen() {
                     setRoomSheetHotelId(null);
                     setHotelRoomsQty(1);
                   } else {
-                    openHotelQtyModal(hotel.id);
+                    setRoomSheetHotelId(hotel.id);
                   }
                 }}
                 activeOpacity={0.8}
@@ -1516,6 +1514,7 @@ export default function CheckoutScreen() {
               setSelectedHotel(roomSheetHotelId);
               setSelectedRoomType(room);
               setRoomSheetHotelId(null);
+              openHotelQtyModal(room);
             }}
             onClose={() => setRoomSheetHotelId(null)}
           />
@@ -1524,37 +1523,30 @@ export default function CheckoutScreen() {
 
       {/* ── Hotel Rooms Quantity Modal ── */}
       {(() => {
-        const modalHotel = hotelQtyModal.hotelId
-          ? (hotels ?? []).find(h => h.id === hotelQtyModal.hotelId) ?? null
-          : null;
-        const pricePreview = (modalHotel?.base_price ?? 0) * Math.max(nights, 1) * pendingHotelRooms;
+        const modalHotel = hotelQtyModal.room
+        const pricePreview = (modalHotel?.price_per_night ?? 0) * Math.max(nights, 1) * pendingHotelRooms;
         return (
           <Modal
             visible={hotelQtyModal.visible}
             transparent
             animationType="slide"
-            onRequestClose={() => setHotelQtyModal({ visible: false, hotelId: null })}
+            onRequestClose={() => setHotelQtyModal({ visible: false, room: null })}
           >
             <TouchableOpacity
               style={styles.modalOverlay}
               activeOpacity={1}
-              onPress={() => setHotelQtyModal({ visible: false, hotelId: null })}
+              onPress={() => setHotelQtyModal({ visible: false, room: null })}
             >
               <View style={styles.modalSheet} onStartShouldSetResponder={() => true}>
                 <View style={styles.modalHandle} />
 
                 <View style={styles.tqHeader}>
                   <Text style={styles.tqTitle}>Jumlah Kamar</Text>
-                  {modalHotel && (
-                    <Text style={styles.tqSub}>
-                      🏨 {modalHotel.name} · {'⭐'.repeat(modalHotel.star_rating)}
-                    </Text>
-                  )}
                 </View>
 
                 {modalHotel && (
                   <View style={styles.tqRouteRow}>
-                    <Text style={styles.tqRouteTime}>Rp {(modalHotel.base_price / 1000).toFixed(0)}K</Text>
+                    <Text style={styles.tqRouteTime}>Mulai Dari Rp {(modalHotel.price_per_night / 1000).toFixed(0)}K</Text>
                     <Text style={styles.tqRouteSep}>/malam</Text>
                     {nights > 1 && (
                       <Text style={styles.tqRouteDur}>  · {nights} malam</Text>
@@ -1582,20 +1574,20 @@ export default function CheckoutScreen() {
                   </TouchableOpacity>
                 </View>
 
-                {modalHotel && (
-                  <View style={styles.tqPriceRow}>
-                    <Text style={styles.tqPriceLabel}>Estimasi Total</Text>
-                    <Text style={styles.tqPriceVal}>{fmt(pricePreview)}</Text>
-                  </View>
-                )}
                 {modalHotel && pendingHotelRooms > 1 && (
-                  <Text style={styles.tqPricePer}>{fmt(modalHotel.base_price)}/kamar/malam</Text>
+                  <Text style={styles.tqPricePer}>{fmt(modalHotel.price_per_night)}/kamar/malam</Text>
                 )}
 
                 <View style={styles.modalFooter}>
                   <TouchableOpacity
                     style={styles.resetBtn}
-                    onPress={() => setHotelQtyModal({ visible: false, hotelId: null })}
+                    onPress={() => {
+                      setHotelQtyModal({ visible: false, room: selectedRoomType });
+                      setPendingHotelRooms(1);
+                      setRoomSheetHotelId(null);
+                      setSelectedHotel(null);
+                      setSelectedRoomType(null);
+                    }}
                     activeOpacity={0.8}
                   >
                     <Text style={styles.resetText}>Batal</Text>
