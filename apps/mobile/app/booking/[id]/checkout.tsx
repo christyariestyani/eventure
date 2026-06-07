@@ -183,6 +183,24 @@ export default function CheckoutScreen() {
   const [selectedPayment,      setSelectedPayment]      = useState<string | null>(null);
   const [loading,              setLoading]              = useState(false);
 
+  // ── Hotel rooms quantity popup ────────────────────────────────────────────
+  const [hotelRoomsQty,    setHotelRoomsQty]    = useState(1);
+  const [pendingHotelRooms, setPendingHotelRooms] = useState(1);
+  const [hotelQtyModal, setHotelQtyModal] = useState<{
+    visible: boolean;
+    hotelId: number | null;
+  }>({ visible: false, hotelId: null });
+
+  // ── Ticket quantity popup ─────────────────────────────────────────────────
+  const [ticketQtyModal, setTicketQtyModal] = useState<{
+    visible: boolean;
+    type: 'outbound' | 'return';
+    opt: TransportOption | null;
+  }>({ visible: false, type: 'outbound', opt: null });
+  const [pendingTicketQty,  setPendingTicketQty]  = useState(1);
+  const [outboundTransportQty, setOutboundTransportQty] = useState(1);
+  const [returnTransportQty,   setReturnTransportQty]   = useState(1);
+
   // ── Date state ─────────────────────────────────────────────────────────────
   const [departDate,   setDepartDate]   = useState<string | null>(null);
   const [returnDate,   setReturnDate]   = useState<string | null>(null);
@@ -442,12 +460,12 @@ export default function CheckoutScreen() {
   const hotelBase = selectedRoomType
     ? selectedRoomType.price_per_night
     : selectedHotel ? (hotels?.find(h => h.id === selectedHotel)?.base_price ?? 0) : 0;
-  const hotelAmount = hotelBase * nights;
+  const hotelAmount = hotelBase * nights * hotelRoomsQty;
   const earlyFee    = selectedHotel && earlyCheckIn  ? 150000 : 0;
   const lateFee     = selectedHotel && lateCheckOut  ? 100000 : 0;
 
-  const outboundAmount  = (outboundOpt?.price ?? 0) * quantity;
-  const returnAmount    = (returnOpt?.price   ?? 0) * quantity;
+  const outboundAmount  = (outboundOpt?.price ?? 0) * outboundTransportQty;
+  const returnAmount    = (returnOpt?.price   ?? 0) * returnTransportQty;
   const transportAmount = outboundAmount + returnAmount;
 
   const platformFee = Math.round(ticketAmount * 0.03);
@@ -477,6 +495,37 @@ export default function CheckoutScreen() {
     setPendingStars([]);
     setPendingPrice('all');
     setPendingDist('all');
+  };
+
+  const openHotelQtyModal = (hotelId: number) => {
+    setPendingHotelRooms(hotelRoomsQty);
+    setHotelQtyModal({ visible: true, hotelId });
+  };
+
+  const confirmHotelRooms = () => {
+    if (hotelQtyModal.hotelId) {
+      setHotelRoomsQty(pendingHotelRooms);
+      setRoomSheetHotelId(hotelQtyModal.hotelId);
+    }
+    setHotelQtyModal({ visible: false, hotelId: null });
+  };
+
+  const openTicketQtyModal = (type: 'outbound' | 'return', opt: TransportOption) => {
+    setPendingTicketQty(type === 'outbound' ? outboundTransportQty : returnTransportQty);
+    setTicketQtyModal({ visible: true, type, opt });
+  };
+
+  const confirmTicketQty = () => {
+    if (ticketQtyModal.type === 'outbound' && ticketQtyModal.opt) {
+      setOutboundTransportId(ticketQtyModal.opt.id);
+      setOutboundTransportQty(pendingTicketQty);
+      setExpandedOutboundOp(null);
+    } else if (ticketQtyModal.type === 'return' && ticketQtyModal.opt) {
+      setReturnTransportId(ticketQtyModal.opt.id);
+      setReturnTransportQty(pendingTicketQty);
+      setExpandedReturnOp(null);
+    }
+    setTicketQtyModal({ visible: false, type: 'outbound', opt: null });
   };
 
   const togglePendingStar = (star: number) =>
@@ -518,6 +567,7 @@ export default function CheckoutScreen() {
           check_in:            checkInDate,
           check_out:           checkOutDate,
           nights,
+          rooms:               hotelRoomsQty,
           early_check_in:      earlyCheckIn,
           early_check_in_time: earlyCheckIn ? earlyCheckInTime : null,
           late_check_out:      lateCheckOut,
@@ -543,7 +593,7 @@ export default function CheckoutScreen() {
           is_overnight:     isOvernightTrip(outboundOpt),
           price:            outboundAmount,
           price_per_person: outboundOpt.price,
-          quantity,
+          quantity:         outboundTransportQty,
           seat_pos:         outboundSeatPos,
           seat_side:        outboundSeatSide,
           note:             outboundNote || undefined,
@@ -563,7 +613,7 @@ export default function CheckoutScreen() {
           is_overnight:     isOvernightTrip(returnOpt),
           price:            returnAmount,
           price_per_person: returnOpt.price,
-          quantity,
+          quantity:         returnTransportQty,
           seat_pos:         returnSeatPos,
           seat_side:        returnSeatSide,
           note:             returnNote || undefined,
@@ -595,7 +645,7 @@ export default function CheckoutScreen() {
           is_overnight:     isOvernightTrip(outboundOpt),
           price:            outboundAmount,
           price_per_person: outboundOpt.price,
-          quantity,
+          quantity:         outboundTransportQty,
           seat_pos:         outboundSeatPos,
           seat_side:        outboundSeatSide,
         } : null,
@@ -614,7 +664,7 @@ export default function CheckoutScreen() {
           is_overnight:     isOvernightTrip(returnOpt),
           price:            returnAmount,
           price_per_person: returnOpt.price,
-          quantity,
+          quantity:         returnTransportQty,
           seat_pos:         returnSeatPos,
           seat_side:        returnSeatSide,
         } : null,
@@ -796,9 +846,9 @@ export default function CheckoutScreen() {
             endLabel="Pulang"
             startValue={departDate}
             endValue={returnDate}
-            onChangeStart={d => { setDepartDate(d); setOutboundTransportId(null); setReturnTransportId(null); }}
-            onChangeEnd={v => { setReturnDate(v); setReturnTransportId(null); }}
-            onReset={() => { setDepartDate(null); setReturnDate(null); setOutboundTransportId(null); setReturnTransportId(null); }}
+            onChangeStart={d => { setDepartDate(d); setOutboundTransportId(null); setOutboundTransportQty(1); setReturnTransportId(null); setReturnTransportQty(1); }}
+            onChangeEnd={v => { setReturnDate(v); setReturnTransportId(null); setReturnTransportQty(1); }}
+            onReset={() => { setDepartDate(null); setReturnDate(null); setOutboundTransportId(null); setOutboundTransportQty(1); setReturnTransportId(null); setReturnTransportQty(1); }}
             minDate={new Date()}
             startMaxDate={eventStartAt ? parseISO(eventStartAt.split('T')[0]) : undefined}
             startPlaceholder="Pilih tanggal"
@@ -871,15 +921,18 @@ export default function CheckoutScreen() {
                           return (
                             <TouchableOpacity key={opt.id} activeOpacity={0.8}
                               style={[styles.classCard, isSel && styles.classCardActive]}
-                              onPress={() => { setOutboundTransportId(isSel ? null : opt.id); if (!isSel) setExpandedOutboundOp(null); }}>
+                              onPress={() => {
+                                if (isSel) { setOutboundTransportId(null); setOutboundTransportQty(1); }
+                                else { openTicketQtyModal('outbound', opt); }
+                              }}>
                               {/* Class header */}
                               <View style={styles.classHead}>
                                 <View style={styles.classBadgeWrap}>
                                   <Text style={styles.classBadgeTxt}>{serviceName !== opt.classBadge ? `${serviceName} · ` : ''}{opt.classBadge}</Text>
                                 </View>
                                 <View style={{ alignItems: 'flex-end' }}>
-                                  <Text style={[styles.classPrice, isSel && styles.classPriceActive]}>{fmt(opt.price * quantity)}</Text>
-                                  {quantity > 1 && <Text style={{ fontSize: 10, color: '#94A3B8' }}>{fmt(opt.price)}/orang</Text>}
+                                  <Text style={[styles.classPrice, isSel && styles.classPriceActive]}>{fmt(opt.price * (isSel ? outboundTransportQty : 1))}</Text>
+                                  {isSel && outboundTransportQty > 1 && <Text style={{ fontSize: 10, color: '#94A3B8' }}>{fmt(opt.price)}/orang</Text>}
                                 </View>
                                 {isSel && <Text style={styles.classCheck}>✓</Text>}
                               </View>
@@ -1014,14 +1067,17 @@ export default function CheckoutScreen() {
                           return (
                             <TouchableOpacity key={opt.id} activeOpacity={0.8}
                               style={[styles.classCard, isSel && styles.classCardActive]}
-                              onPress={() => { setReturnTransportId(isSel ? null : opt.id); if (!isSel) setExpandedReturnOp(null); }}>
+                              onPress={() => {
+                                if (isSel) { setReturnTransportId(null); setReturnTransportQty(1); }
+                                else { openTicketQtyModal('return', opt); }
+                              }}>
                               <View style={styles.classHead}>
                                 <View style={styles.classBadgeWrap}>
                                   <Text style={styles.classBadgeTxt}>{serviceName !== opt.classBadge ? `${serviceName} · ` : ''}{opt.classBadge}</Text>
                                 </View>
                                 <View style={{ alignItems: 'flex-end' }}>
-                                  <Text style={[styles.classPrice, isSel && styles.classPriceActive]}>{fmt(opt.price * quantity)}</Text>
-                                  {quantity > 1 && <Text style={{ fontSize: 10, color: '#94A3B8' }}>{fmt(opt.price)}/orang</Text>}
+                                  <Text style={[styles.classPrice, isSel && styles.classPriceActive]}>{fmt(opt.price * (isSel ? returnTransportQty : 1))}</Text>
+                                  {isSel && returnTransportQty > 1 && <Text style={{ fontSize: 10, color: '#94A3B8' }}>{fmt(opt.price)}/orang</Text>}
                                 </View>
                                 {isSel && <Text style={styles.classCheck}>✓</Text>}
                               </View>
@@ -1154,8 +1210,9 @@ export default function CheckoutScreen() {
                     setSelectedHotel(null);
                     setSelectedRoomType(null);
                     setRoomSheetHotelId(null);
+                    setHotelRoomsQty(1);
                   } else {
-                    setRoomSheetHotelId(hotel.id);
+                    openHotelQtyModal(hotel.id);
                   }
                 }}
                 activeOpacity={0.8}
@@ -1179,7 +1236,13 @@ export default function CheckoutScreen() {
                         )}
                       </View>
                       {isSelected && selectedRoomType && (
-                        <Text style={styles.roomTypeBadge}>{selectedRoomType.name} · {selectedRoomType.bed_type}</Text>
+                        <Text style={styles.roomTypeBadge}>
+                          {selectedRoomType.name} · {selectedRoomType.bed_type}
+                          {hotelRoomsQty > 1 ? ` · ${hotelRoomsQty} kamar` : ''}
+                        </Text>
+                      )}
+                      {isSelected && !selectedRoomType && hotelRoomsQty > 1 && (
+                        <Text style={styles.roomTypeBadge}>{hotelRoomsQty} kamar</Text>
                       )}
                     </View>
                   </View>
@@ -1385,7 +1448,7 @@ export default function CheckoutScreen() {
           {hotelAmount > 0 && (
             <View style={styles.breakdownRow}>
               <Text style={styles.breakdownLabel}>
-                Penginapan{checkInDate && checkOutDate ? ` (${nights} malam)` : ''}
+                Penginapan{checkInDate && checkOutDate ? ` (${nights} malam)` : ''}{hotelRoomsQty > 1 ? ` × ${hotelRoomsQty} kamar` : ''}
               </Text>
               <Text style={styles.breakdownVal}>{fmt(hotelAmount)}</Text>
             </View>
@@ -1405,7 +1468,7 @@ export default function CheckoutScreen() {
           {outboundAmount > 0 && (
             <View style={styles.breakdownRow}>
               <Text style={styles.breakdownLabel}>
-                Transport Pergi ({outboundOpt?.classBadge}){quantity > 1 ? ` × ${quantity} orang` : ''}
+                Transport Pergi ({outboundOpt?.classBadge}){outboundTransportQty > 1 ? ` × ${outboundTransportQty} orang` : ''}
               </Text>
               <Text style={styles.breakdownVal}>{fmt(outboundAmount)}</Text>
             </View>
@@ -1413,7 +1476,7 @@ export default function CheckoutScreen() {
           {returnAmount > 0 && (
             <View style={styles.breakdownRow}>
               <Text style={styles.breakdownLabel}>
-                Transport Pulang ({returnOpt?.classBadge}){quantity > 1 ? ` × ${quantity} orang` : ''}
+                Transport Pulang ({returnOpt?.classBadge}){returnTransportQty > 1 ? ` × ${returnTransportQty} orang` : ''}
               </Text>
               <Text style={styles.breakdownVal}>{fmt(returnAmount)}</Text>
             </View>
@@ -1458,6 +1521,173 @@ export default function CheckoutScreen() {
           />
         );
       })()}
+
+      {/* ── Hotel Rooms Quantity Modal ── */}
+      {(() => {
+        const modalHotel = hotelQtyModal.hotelId
+          ? (hotels ?? []).find(h => h.id === hotelQtyModal.hotelId) ?? null
+          : null;
+        const pricePreview = (modalHotel?.base_price ?? 0) * Math.max(nights, 1) * pendingHotelRooms;
+        return (
+          <Modal
+            visible={hotelQtyModal.visible}
+            transparent
+            animationType="slide"
+            onRequestClose={() => setHotelQtyModal({ visible: false, hotelId: null })}
+          >
+            <TouchableOpacity
+              style={styles.modalOverlay}
+              activeOpacity={1}
+              onPress={() => setHotelQtyModal({ visible: false, hotelId: null })}
+            >
+              <View style={styles.modalSheet} onStartShouldSetResponder={() => true}>
+                <View style={styles.modalHandle} />
+
+                <View style={styles.tqHeader}>
+                  <Text style={styles.tqTitle}>Jumlah Kamar</Text>
+                  {modalHotel && (
+                    <Text style={styles.tqSub}>
+                      🏨 {modalHotel.name} · {'⭐'.repeat(modalHotel.star_rating)}
+                    </Text>
+                  )}
+                </View>
+
+                {modalHotel && (
+                  <View style={styles.tqRouteRow}>
+                    <Text style={styles.tqRouteTime}>Rp {(modalHotel.base_price / 1000).toFixed(0)}K</Text>
+                    <Text style={styles.tqRouteSep}>/malam</Text>
+                    {nights > 1 && (
+                      <Text style={styles.tqRouteDur}>  · {nights} malam</Text>
+                    )}
+                  </View>
+                )}
+
+                <View style={styles.tqQtyRow}>
+                  <TouchableOpacity
+                    style={[styles.tqBtn, pendingHotelRooms <= 1 && styles.tqBtnDisabled]}
+                    onPress={() => setPendingHotelRooms(q => Math.max(1, q - 1))}
+                    disabled={pendingHotelRooms <= 1}
+                  >
+                    <Text style={styles.tqBtnText}>−</Text>
+                  </TouchableOpacity>
+                  <View style={styles.tqQtyBox}>
+                    <Text style={styles.tqQtyNum}>{pendingHotelRooms}</Text>
+                    <Text style={styles.tqQtyLabel}>kamar</Text>
+                  </View>
+                  <TouchableOpacity
+                    style={styles.tqBtn}
+                    onPress={() => setPendingHotelRooms(q => q + 1)}
+                  >
+                    <Text style={styles.tqBtnText}>+</Text>
+                  </TouchableOpacity>
+                </View>
+
+                {modalHotel && (
+                  <View style={styles.tqPriceRow}>
+                    <Text style={styles.tqPriceLabel}>Estimasi Total</Text>
+                    <Text style={styles.tqPriceVal}>{fmt(pricePreview)}</Text>
+                  </View>
+                )}
+                {modalHotel && pendingHotelRooms > 1 && (
+                  <Text style={styles.tqPricePer}>{fmt(modalHotel.base_price)}/kamar/malam</Text>
+                )}
+
+                <View style={styles.modalFooter}>
+                  <TouchableOpacity
+                    style={styles.resetBtn}
+                    onPress={() => setHotelQtyModal({ visible: false, hotelId: null })}
+                    activeOpacity={0.8}
+                  >
+                    <Text style={styles.resetText}>Batal</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity style={styles.applyBtn} onPress={confirmHotelRooms} activeOpacity={0.85}>
+                    <Text style={styles.applyText}>Pilih Kamar</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            </TouchableOpacity>
+          </Modal>
+        );
+      })()}
+
+      {/* ── Ticket Quantity Modal ── */}
+      <Modal
+        visible={ticketQtyModal.visible}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setTicketQtyModal({ visible: false, type: 'outbound', opt: null })}
+      >
+        <TouchableOpacity
+          style={styles.modalOverlay}
+          activeOpacity={1}
+          onPress={() => setTicketQtyModal({ visible: false, type: 'outbound', opt: null })}
+        >
+          <View style={styles.modalSheet} onStartShouldSetResponder={() => true}>
+            <View style={styles.modalHandle} />
+
+            <View style={styles.tqHeader}>
+              <Text style={styles.tqTitle}>Jumlah Tiket</Text>
+              {ticketQtyModal.opt && (
+                <Text style={styles.tqSub}>
+                  {ticketQtyModal.opt.icon} {ticketQtyModal.opt.operator} · {ticketQtyModal.opt.classBadge}
+                </Text>
+              )}
+            </View>
+
+            {ticketQtyModal.opt && (
+              <View style={styles.tqRouteRow}>
+                <Text style={styles.tqRouteTime}>{ticketQtyModal.opt.departureTime}</Text>
+                <Text style={styles.tqRouteSep}>——›</Text>
+                <Text style={styles.tqRouteTime}>{ticketQtyModal.opt.arrivalTime}</Text>
+                <Text style={styles.tqRouteDur}>  ({formatDuration(ticketQtyModal.opt.durationMinutes)})</Text>
+              </View>
+            )}
+
+            <View style={styles.tqQtyRow}>
+              <TouchableOpacity
+                style={[styles.tqBtn, pendingTicketQty <= 1 && styles.tqBtnDisabled]}
+                onPress={() => setPendingTicketQty(q => Math.max(1, q - 1))}
+                disabled={pendingTicketQty <= 1}
+              >
+                <Text style={styles.tqBtnText}>−</Text>
+              </TouchableOpacity>
+              <View style={styles.tqQtyBox}>
+                <Text style={styles.tqQtyNum}>{pendingTicketQty}</Text>
+                <Text style={styles.tqQtyLabel}>tiket</Text>
+              </View>
+              <TouchableOpacity
+                style={styles.tqBtn}
+                onPress={() => setPendingTicketQty(q => q + 1)}
+              >
+                <Text style={styles.tqBtnText}>+</Text>
+              </TouchableOpacity>
+            </View>
+
+            {ticketQtyModal.opt && (
+              <View style={styles.tqPriceRow}>
+                <Text style={styles.tqPriceLabel}>Total</Text>
+                <Text style={styles.tqPriceVal}>{fmt(ticketQtyModal.opt.price * pendingTicketQty)}</Text>
+              </View>
+            )}
+            {ticketQtyModal.opt && pendingTicketQty > 1 && (
+              <Text style={styles.tqPricePer}>{fmt(ticketQtyModal.opt.price)}/tiket</Text>
+            )}
+
+            <View style={styles.modalFooter}>
+              <TouchableOpacity
+                style={styles.resetBtn}
+                onPress={() => setTicketQtyModal({ visible: false, type: 'outbound', opt: null })}
+                activeOpacity={0.8}
+              >
+                <Text style={styles.resetText}>Batal</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.applyBtn} onPress={confirmTicketQty} activeOpacity={0.85}>
+                <Text style={styles.applyText}>Pilih Tiket</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </TouchableOpacity>
+      </Modal>
 
       {/* ── Hotel Sort & Filter Modal ── */}
       <Modal visible={showHotelModal} transparent animationType="slide" onRequestClose={() => setShowHotelModal(false)}>
@@ -1802,6 +2032,26 @@ const styles = StyleSheet.create({
   resetText: { fontSize: 14, fontWeight: '700', color: '#374151' },
   applyBtn:  { flex: 2, paddingVertical: 14, borderRadius: 12, backgroundColor: BLUE, alignItems: 'center' },
   applyText: { fontSize: 14, fontWeight: '700', color: '#FFFFFF' },
+
+  // Ticket quantity modal
+  tqHeader:    { paddingHorizontal: 20, paddingBottom: 12 },
+  tqTitle:     { fontSize: 18, fontWeight: '800', color: '#111827', marginBottom: 4 },
+  tqSub:       { fontSize: 13, color: '#6B7280', fontWeight: '600' },
+  tqRouteRow:  { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, marginBottom: 24 },
+  tqRouteTime: { fontSize: 16, fontWeight: '800', color: '#111827' },
+  tqRouteSep:  { fontSize: 14, color: '#CBD5E1', marginHorizontal: 8 },
+  tqRouteDur:  { fontSize: 12, color: '#9CA3AF', fontWeight: '600' },
+  tqQtyRow:    { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 24, marginBottom: 20 },
+  tqBtn:       { width: 48, height: 48, borderRadius: 24, backgroundColor: '#EFF6FF', alignItems: 'center', justifyContent: 'center', borderWidth: 1.5, borderColor: BLUE },
+  tqBtnDisabled: { backgroundColor: '#F3F4F6', borderColor: '#E5E7EB' },
+  tqBtnText:   { fontSize: 24, color: BLUE, fontWeight: '700', lineHeight: 30 },
+  tqQtyBox:    { alignItems: 'center', minWidth: 60 },
+  tqQtyNum:    { fontSize: 36, fontWeight: '800', color: '#111827' },
+  tqQtyLabel:  { fontSize: 12, color: '#9CA3AF', fontWeight: '600', marginTop: -2 },
+  tqPriceRow:  { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, marginBottom: 4 },
+  tqPriceLabel:{ fontSize: 14, color: '#374151', fontWeight: '600' },
+  tqPriceVal:  { fontSize: 20, fontWeight: '800', color: BLUE },
+  tqPricePer:  { fontSize: 12, color: '#9CA3AF', textAlign: 'right', paddingHorizontal: 20, marginBottom: 8 },
 
   // ── Form peserta ────────────────────────────────────────────────────────────
   formCard: {
