@@ -1546,7 +1546,7 @@ export default function CheckoutScreen() {
 
                 {modalHotel && (
                   <View style={styles.tqRouteRow}>
-                    <Text style={styles.tqRouteTime}>Mulai Dari Rp {(modalHotel.price_per_night / 1000).toFixed(0)}K</Text>
+                    <Text style={styles.tqRouteTime}>Rp {(modalHotel.price_per_night / 1000).toFixed(0)}K</Text>
                     <Text style={styles.tqRouteSep}>/malam</Text>
                     {nights > 1 && (
                       <Text style={styles.tqRouteDur}>  · {nights} malam</Text>
@@ -1573,6 +1573,13 @@ export default function CheckoutScreen() {
                     <Text style={styles.tqBtnText}>+</Text>
                   </TouchableOpacity>
                 </View>
+
+                {modalHotel && (
+                  <View style={styles.tqPriceRow}>
+                    <Text style={styles.tqPriceLabel}>Total</Text>
+                    <Text style={styles.tqPriceVal}>{fmt(pricePreview)}</Text>
+                  </View>
+                )}
 
                 {modalHotel && pendingHotelRooms > 1 && (
                   <Text style={styles.tqPricePer}>{fmt(modalHotel.price_per_night)}/kamar/malam</Text>
