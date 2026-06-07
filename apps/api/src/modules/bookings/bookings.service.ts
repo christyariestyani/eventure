@@ -153,7 +153,6 @@ export class BookingsService {
     userId: number,
     addons: {
       hotel_id?: string;
-      room_type_id?: string;
       transport_price?: number;
       hotel_meta?: Record<string, any>;
       outbound_meta?: Record<string, any>;
@@ -194,11 +193,11 @@ export class BookingsService {
 
       var basePrice = hotel.base_price;
 
-      if (addons.room_type_id) {
+      if (addons.hotel_meta?.room_type_id) {
         const { data: roomType } = await supabase
           .from('room_types')
           .select('price_per_night, name')
-          .eq('id', addons.room_type_id)
+          .eq('id', addons.hotel_meta?.room_type_id)
           .eq('accommodation_id', addons.hotel_id)
           .single();
 
