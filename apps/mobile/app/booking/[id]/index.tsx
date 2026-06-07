@@ -855,6 +855,24 @@ export default function BookingDetailScreen() {
           </View>
         </View>
 
+        {/* Edit Transportasi & Hotel — confirmed only */}
+        {booking.status === 'confirmed' && (
+          <View style={styles.section}>
+            <TouchableOpacity
+              style={styles.editAddonsBtn}
+              onPress={() => router.push(`/booking/${id}/edit-addons` as any)}
+              activeOpacity={0.85}
+            >
+              <Text style={styles.editAddonsBtnIcon}>✏️</Text>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.editAddonsBtnLabel}>Edit Transportasi & Hotel</Text>
+                <Text style={styles.editAddonsBtnSub}>Ubah pilihan transportasi atau penginapan</Text>
+              </View>
+              <Text style={styles.editAddonsBtnChevron}>›</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+
         <View style={{ height: 32 }} />
       </ScrollView>
     </SafeAreaView>
@@ -1018,4 +1036,14 @@ const styles = StyleSheet.create({
   codeRow:   { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 10, paddingTop: 10, borderTopWidth: 1, borderTopColor: '#E5E7EB' },
   codeLabel: { fontSize: 12, color: '#6B7280', fontWeight: '600' },
   codeValue: { fontSize: 12, color: BLUE, fontWeight: '800', letterSpacing: 0.8, backgroundColor: '#EFF6FF', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 6 },
+
+  editAddonsBtn: {
+    flexDirection: 'row', alignItems: 'center', gap: 12,
+    backgroundColor: '#FFFFFF', borderRadius: 14,
+    borderWidth: 1.5, borderColor: BLUE, padding: 16,
+  },
+  editAddonsBtnIcon:    { fontSize: 22 },
+  editAddonsBtnLabel:   { fontSize: 14, fontWeight: '700', color: BLUE },
+  editAddonsBtnSub:     { fontSize: 12, color: '#6B7280', marginTop: 2 },
+  editAddonsBtnChevron: { fontSize: 22, color: BLUE, fontWeight: '300' },
 });

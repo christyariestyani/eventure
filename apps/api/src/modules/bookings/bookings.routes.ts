@@ -50,6 +50,44 @@ export async function bookingsRoutes(fastify: FastifyInstance) {
     }
   });
 
+  // PATCH /api/v1/bookings/:id/edit-addons — edit hotel/transport on confirmed booking
+  fastify.patch('/:id/edit-addons', { preHandler: requireAuth }, async (request, reply) => {
+    const user = (request as any).user as { id: number };
+    const { id } = request.params as { id: string };
+    const body = request.body as {
+      hotel_id?: string;
+      hotel_meta?: Record<string, any>;
+      outbound_meta?: Record<string, any>;
+      return_meta?: Record<string, any>;
+    };
+
+    try {
+      const result = await service.editAddons(id, user.id, body);
+      return reply.send({ data: result });
+    } catch (err) {
+      if (err instanceof AppError) {
+        return reply.status(err.statusCode).send({ error: err.code, message: err.message });
+      }
+      throw err;
+    }
+  });
+
+  // POST /api/v1/bookings/:id/pay-supplement — pay the price difference after edit
+  fastify.post('/:id/pay-supplement', { preHandler: requireAuth }, async (request, reply) => {
+    const user = (request as any).user as { id: number };
+    const { id } = request.params as { id: string };
+
+    try {
+      const result = await service.payDifference(id, user.id);
+      return reply.send({ data: result });
+    } catch (err) {
+      if (err instanceof AppError) {
+        return reply.status(err.statusCode).send({ error: err.code, message: err.message });
+      }
+      throw err;
+    }
+  });
+
   // POST /api/v1/bookings/:id/pay — initiate Midtrans payment
   fastify.post('/:id/pay', { preHandler: requireAuth }, async (request, reply) => {
     const user = (request as any).user as { id: number };

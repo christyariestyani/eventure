@@ -307,6 +307,169 @@ export class BookingsService {
     return { payment_token: paymentToken, booking_number: booking.booking_number };
   }
 
+  async editAddons(
+    bookingNumber: string,
+    userId: number,
+    addons: {
+      hotel_id?: string;
+      hotel_meta?: Record<string, any>;
+      outbound_meta?: Record<string, any>;
+      return_meta?: Record<string, any>;
+    }
+  ) {
+    const { data: booking } = await supabase
+      .from('bookings')
+      .select('id, status, total_amount, platform_fee')
+      .eq('booking_number', bookingNumber)
+      .eq('user_id', userId)
+      .single();
+
+    if (!booking) throw new AppError('BOOKING_NOT_FOUND', 404);
+    if (booking.status !== 'confirmed') {
+      throw new AppError('BOOKING_NOT_CONFIRMED', 400, 'Hanya booking terkonfirmasi yang dapat diedit');
+    }
+
+    const previousTotal = Number(booking.total_amount);
+
+    await supabase
+      .from('booking_items')
+      .delete()
+      .eq('booking_id', booking.id)
+      .in('item_type', ['accommodation', 'outbound_transport', 'return_transport']);
+
+    let addonTotal = 0;
+
+    if (addons.hotel_id) {
+      const { data: hotel } = await supabase
+        .from('accommodations')
+        .select('base_price, name')
+        .eq('id', addons.hotel_id)
+        .single();
+
+      if (hotel) {
+        const nights = addons.hotel_meta?.nights ?? 1;
+        const extraFees = addons.hotel_meta?.extra_fees ?? 0;
+        const hotelSubtotal = Number(hotel.base_price) * Math.max(1, nights);
+        addonTotal += hotelSubtotal + extraFees;
+        await supabase.from('booking_items').insert({
+          booking_id: booking.id,
+          item_type: 'accommodation',
+          accommodation_id: addons.hotel_id,
+          quantity: nights,
+          unit_price: hotel.base_price,
+          subtotal: hotelSubtotal,
+          metadata: { name: hotel.name, ...addons.hotel_meta },
+        });
+      }
+    }
+
+    if (addons.outbound_meta) {
+      const price = addons.outbound_meta.price ?? 0;
+      addonTotal += price;
+      await supabase.from('booking_items').insert({
+        booking_id: booking.id,
+        item_type: 'outbound_transport',
+        quantity: 1,
+        unit_price: price,
+        subtotal: price,
+        metadata: addons.outbound_meta,
+      });
+    }
+
+    if (addons.return_meta) {
+      const price = addons.return_meta.price ?? 0;
+      addonTotal += price;
+      await supabase.from('booking_items').insert({
+        booking_id: booking.id,
+        item_type: 'return_transport',
+        quantity: 1,
+        unit_price: price,
+        subtotal: price,
+        metadata: addons.return_meta,
+      });
+    }
+
+    const { data: ticketItem } = await supabase
+      .from('booking_items')
+      .select('subtotal')
+      .eq('booking_id', booking.id)
+      .eq('item_type', 'ticket')
+      .single();
+
+    const ticketSubtotal = Number(ticketItem?.subtotal ?? 0);
+    const platformFee = Number(booking.platform_fee ?? Math.round(ticketSubtotal * PLATFORM_FEE_RATE));
+    const newTotal = ticketSubtotal + addonTotal + platformFee;
+    const difference = Math.round(newTotal - previousTotal);
+
+    if (difference <= 0) {
+      await supabase
+        .from('bookings')
+        .update({ total_amount: newTotal })
+        .eq('id', booking.id);
+    }
+
+    return { ok: true, previous_total: previousTotal, new_total: newTotal, difference };
+  }
+
+  async payDifference(bookingNumber: string, userId: number) {
+    const { data: booking } = await supabase
+      .from('bookings')
+      .select('*, users(full_name, email, phone)')
+      .eq('booking_number', bookingNumber)
+      .eq('user_id', userId)
+      .single();
+
+    if (!booking) throw new AppError('BOOKING_NOT_FOUND', 404);
+    if (booking.status !== 'confirmed') {
+      throw new AppError('BOOKING_NOT_CONFIRMED', 400, 'Hanya booking terkonfirmasi yang dapat membayar selisih');
+    }
+
+    const { data: items } = await supabase
+      .from('booking_items')
+      .select('item_type, subtotal, metadata')
+      .eq('booking_id', booking.id);
+
+    const ticketSubtotal = Number(items?.find(i => i.item_type === 'ticket')?.subtotal ?? 0);
+    const addonTotal = (items ?? [])
+      .filter(i => ['accommodation', 'outbound_transport', 'return_transport'].includes(i.item_type))
+      .reduce((sum, i) => {
+        const base = Number(i.subtotal);
+        const extra = i.item_type === 'accommodation' ? Number(i.metadata?.extra_fees ?? 0) : 0;
+        return sum + base + extra;
+      }, 0);
+    const platformFee = Number(booking.platform_fee ?? Math.round(ticketSubtotal * PLATFORM_FEE_RATE));
+    const newTotal = ticketSubtotal + addonTotal + platformFee;
+    const difference = Math.round(newTotal - Number(booking.total_amount));
+
+    if (difference <= 0) {
+      await supabase
+        .from('bookings')
+        .update({ total_amount: newTotal })
+        .eq('booking_number', bookingNumber);
+      return { payment_token: null, difference: 0, booking_number: bookingNumber };
+    }
+
+    const isDevMode = !process.env.MIDTRANS_SERVER_KEY ||
+      process.env.MIDTRANS_SERVER_KEY.includes('xxxx');
+
+    if (isDevMode) {
+      await supabase
+        .from('bookings')
+        .update({ total_amount: newTotal })
+        .eq('booking_number', bookingNumber);
+      return { payment_token: `dev-suppl-${bookingNumber}`, difference, booking_number: bookingNumber };
+    }
+
+    const supplementOrderId = `${bookingNumber}-SUPPL`;
+    const paymentToken = await createSnapTransaction({
+      booking_number: supplementOrderId,
+      total_amount: difference,
+      user: booking.users,
+    });
+
+    return { payment_token: paymentToken, difference, booking_number: bookingNumber };
+  }
+
   async getBookingDetail(bookingNumber: string, userId: number) {
     const { data: booking, error } = await supabase
       .from('bookings')

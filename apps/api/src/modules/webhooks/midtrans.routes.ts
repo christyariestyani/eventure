@@ -30,15 +30,51 @@ export async function webhookRoutes(fastify: FastifyInstance) {
       return reply.status(200).send({ ok: true }); // pending/challenge — ignore
     }
 
+    // Supplement payments have order_id like "EVT-XXXXXX-SUPPL"
+    const isSupplementPayment = body.order_id.endsWith('-SUPPL');
+    const bookingNumber = isSupplementPayment
+      ? body.order_id.replace(/-SUPPL$/, '')
+      : body.order_id;
+
     const { data: booking } = await supabase
       .from('bookings')
-      .select('id, status')
-      .eq('booking_number', body.order_id)
+      .select('id, status, total_amount')
+      .eq('booking_number', bookingNumber)
       .single();
 
     if (!booking) return reply.status(404).send();
 
-    // Idempotency guard
+    if (isSupplementPayment) {
+      if (!isSuccess) return reply.status(200).send({ ok: true });
+
+      // Recalculate new total from current items and update
+      const { data: items } = await supabase
+        .from('booking_items')
+        .select('item_type, subtotal, metadata')
+        .eq('booking_id', booking.id);
+
+      const ticketSubtotal = Number(items?.find((i: any) => i.item_type === 'ticket')?.subtotal ?? 0);
+      const addonTotal = (items ?? [])
+        .filter((i: any) => ['accommodation', 'outbound_transport', 'return_transport'].includes(i.item_type))
+        .reduce((sum: number, i: any) => {
+          const base = Number(i.subtotal);
+          const extra = i.item_type === 'accommodation' ? Number(i.metadata?.extra_fees ?? 0) : 0;
+          return sum + base + extra;
+        }, 0);
+      const newTotal = ticketSubtotal + addonTotal + Number(parseFloat(body.gross_amount));
+      // gross_amount from Midtrans is the supplement amount, not the full total
+      // Calculate from items directly instead
+      const calculatedTotal = ticketSubtotal + addonTotal;
+
+      await supabase
+        .from('bookings')
+        .update({ total_amount: calculatedTotal })
+        .eq('id', booking.id);
+
+      return reply.status(200).send({ ok: true });
+    }
+
+    // Idempotency guard for regular payments
     if (booking.status === 'confirmed' || booking.status === 'cancelled') {
       return reply.status(200).send({ ok: true });
     }
@@ -52,7 +88,7 @@ export async function webhookRoutes(fastify: FastifyInstance) {
       }).eq('id', booking.id);
 
       // Issue tickets & update quota
-      await bookingsService.confirmBookingAndIssueTickets(body.order_id);
+      await bookingsService.confirmBookingAndIssueTickets(bookingNumber);
     }
 
     if (isFailed) {

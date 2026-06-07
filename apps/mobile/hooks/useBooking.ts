@@ -41,6 +41,39 @@ export function useBookingDetail(bookingId: string | undefined) {
   });
 }
 
+export function useEditAddons() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (payload: {
+      bookingNumber: string;
+      hotel_id?: number | null;
+      hotel_meta?: Record<string, any>;
+      outbound_meta?: Record<string, any>;
+      return_meta?: Record<string, any>;
+    }) => {
+      const { bookingNumber, ...body } = payload;
+      return api.patch(`/bookings/${bookingNumber}/edit-addons`, body).then(res => res.data.data);
+    },
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['bookings', variables.bookingNumber] });
+    },
+  });
+}
+
+export function usePaySupplement() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (bookingNumber: string) =>
+      api.post(`/bookings/${bookingNumber}/pay-supplement`).then(res => res.data.data),
+    onSuccess: (_data, bookingNumber) => {
+      queryClient.invalidateQueries({ queryKey: ['bookings', bookingNumber] });
+      queryClient.invalidateQueries({ queryKey: ['bookings'] });
+    },
+  });
+}
+
 export function useBookings(page = 1) {
   return useQuery({
     queryKey: ['bookings', page],
