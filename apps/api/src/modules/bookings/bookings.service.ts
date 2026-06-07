@@ -189,6 +189,7 @@ export class BookingsService {
 
       if (hotel) {
         const nights        = addons.hotel_meta?.nights ?? 1;
+        const roomQty = addons.hotel_meta?.room_qty ?? 1;
         const extraFees     = addons.hotel_meta?.extra_fees ?? 0;
         const hotelSubtotal = hotel.base_price * Math.max(1, nights);
         addonTotal += hotelSubtotal + extraFees;
@@ -196,7 +197,7 @@ export class BookingsService {
           booking_id: booking.id,
           item_type: 'accommodation',
           accommodation_id: addons.hotel_id,
-          quantity: nights,
+          quantity: nights * roomQty,
           unit_price: hotel.base_price,
           subtotal: hotelSubtotal,   // base cost only; extra_fees live in metadata
           metadata: {
