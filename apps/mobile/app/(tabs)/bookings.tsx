@@ -90,7 +90,8 @@ export default function BookingsScreen() {
                   ? Math.max(1, differenceInDays(parseISO(hotelMeta.check_out), parseISO(hotelMeta.check_in)))
                   : null)
               ?? (hotelItem?.quantity && hotelItem.quantity > 1 ? hotelItem.quantity : null);
-            if (nights) return unitPrice * nights + (hotelMeta?.extra_fees ?? 0);
+            const roomQty = Math.max(1, hotelMeta?.room_qty);
+            if (nights || roomQty) return unitPrice * Math.max(1, nights) * Math.max(1, roomQty) + (hotelMeta?.extra_fees ?? 0);
             return hotelItem?.subtotal ?? 0;
           })();
 
