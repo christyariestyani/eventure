@@ -8,6 +8,7 @@ import { useEvents, useSmartFeed, type ApiEvent } from '../../hooks/useEvents';
 import { useAuthStore } from '../../store/useAuthStore';
 import { useTrackBehavior } from '../../hooks/useBehavior';
 import EventCard from '../../components/EventCard';
+import DatePickerField from '../../components/DatePickerField';
 
 const P = '#5B8EF0';
 
@@ -26,12 +27,18 @@ export default function DiscoverScreen() {
   const [search,         setSearch]         = useState('');
   const [activeCategory, setActiveCategory] = useState<string | undefined>(undefined);
   const [debouncedQ,     setDebouncedQ]     = useState('');
+  const [selectedDate,   setSelectedDate]   = useState<string | null>(null);
 
-  const isSearching = !!(debouncedQ || activeCategory);
+  const isSearching = !!(debouncedQ || activeCategory || selectedDate);
+
+  const date_from = selectedDate ? `${selectedDate}T00:00:00+07:00` : undefined;
+  const date_to   = selectedDate ? `${selectedDate}T23:59:59+07:00` : undefined;
 
   const { events, isLoading, isRefetching, refetch: refetchEvents } = useEvents({
     q: debouncedQ || undefined,
     category: activeCategory,
+    date_from,
+    date_to,
   });
 
   const { feed, isRefetching: isRefetchingFeed, refetch: refetchFeed } = useSmartFeed(
@@ -115,6 +122,23 @@ export default function DiscoverScreen() {
           );
         })}
       </ScrollView>
+
+      {/* ── Date filter ────────────────────────────────────────────────────── */}
+      <View style={styles.dateRow}>
+        <View style={{ flex: 1 }}>
+          <DatePickerField
+            label="📅"
+            value={selectedDate}
+            onChange={setSelectedDate}
+            placeholder="Semua Tanggal"
+          />
+        </View>
+        {selectedDate && (
+          <TouchableOpacity style={styles.clearDate} onPress={() => setSelectedDate(null)}>
+            <Text style={styles.clearDateText}>✕</Text>
+          </TouchableOpacity>
+        )}
+      </View>
 
       {/* ── Content ────────────────────────────────────────────────────────── */}
       {showFeed ? (
@@ -278,6 +302,14 @@ const styles = StyleSheet.create({
   catEmoji:       { fontSize: 24 },
   catLabel:       { fontSize: 11, color: '#64748B', fontWeight: '500' },
   catLabelActive: { color: P, fontWeight: '700' },
+
+  dateRow: {
+    backgroundColor: '#FFFFFF', flexDirection: 'row', alignItems: 'center',
+    paddingHorizontal: 20, paddingBottom: 12,
+    borderBottomWidth: 1, borderBottomColor: '#EFF2F9', gap: 10,
+  },
+  clearDate:     { width: 32, height: 32, borderRadius: 16, backgroundColor: '#F1F5F9', alignItems: 'center', justifyContent: 'center' },
+  clearDateText: { fontSize: 12, color: '#64748B', fontWeight: '700' },
 
   list:         { padding: 16, paddingTop: 18 },
   section:      { marginBottom: 28 },
