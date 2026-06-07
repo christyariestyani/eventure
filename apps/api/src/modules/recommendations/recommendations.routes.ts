@@ -7,7 +7,7 @@ export async function recommendationsRoutes(fastify: FastifyInstance) {
 
   // GET /api/v1/recommendations — flat list (backward-compat, used by existing hooks)
   fastify.get('/', { preHandler: optionalAuth }, async (request, reply) => {
-    const user = (request as any).user as { id?: string } | undefined;
+    const user = (request as any).user as { id?: number } | undefined;
     const { limit } = request.query as { limit?: number };
 
     const events = user?.id
@@ -19,7 +19,7 @@ export async function recommendationsRoutes(fastify: FastifyInstance) {
 
   // GET /api/v1/recommendations/feed — sectioned smart feed (For You / Near You / Activity)
   fastify.get('/feed', { preHandler: optionalAuth }, async (request, reply) => {
-    const user = (request as any).user as { id?: string } | undefined;
+    const user = (request as any).user as { id?: number } | undefined;
     const { limit } = request.query as { limit?: number };
 
     if (!user?.id) {

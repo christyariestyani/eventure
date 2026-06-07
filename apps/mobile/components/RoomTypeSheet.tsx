@@ -8,6 +8,61 @@ import { RoomType } from '../hooks/useAccommodations';
 const BLUE  = '#1D63ED';
 const GREEN = '#059669';
 
+// ── Room image helpers ────────────────────────────────────────────────────────
+// Offset per tier agar foto antar tipe kamar berbeda kategori visualnya.
+// lock = hash(room.id) % 20 → 20 variasi per tier, unik per hotel.
+function idHash(id: number): number {
+  return id;
+}
+
+const TIER_OFFSET: Record<'standard' | 'deluxe' | 'suite', number> = {
+  standard: 0,
+  deluxe: 20,
+  suite: 40,
+};
+
+function roomTier(name: string): 'standard' | 'deluxe' | 'suite' {
+  const n = name.toLowerCase();
+  if (n.includes('suite')) return 'suite';
+  if (n.includes('deluxe')) return 'deluxe';
+  return 'standard';
+}
+
+// loremflickr: gambar Flickr ber-tag hotel+room, lock = angka konsisten.
+// Langsung JPEG tanpa redirect — andal di React Native iOS.
+function roomImageUri(room: RoomType): string {
+  if (room.image_urls.length > 0) return room.image_urls[0];
+  const tier   = roomTier(room.name);
+  const lock   = (idHash(room.id) % 20) + 1 + TIER_OFFSET[tier];
+  return `https://loremflickr.com/800/500/hotel,room,interior/all?lock=${lock}`;
+}
+
+// Sub-komponen agar tiap kartu punya error-state sendiri
+function RoomImage({ uri, fallbackEmoji }: { uri: string; fallbackEmoji: string }) {
+  const [failed, setFailed] = React.useState(false);
+  if (failed) {
+    return (
+      <View style={imgStyles.placeholder}>
+        <Text style={imgStyles.emoji}>{fallbackEmoji}</Text>
+      </View>
+    );
+  }
+  return (
+    <Image
+      source={{ uri }}
+      style={imgStyles.img}
+      resizeMode="cover"
+      onError={() => setFailed(true)}
+    />
+  );
+}
+
+const imgStyles = StyleSheet.create({
+  placeholder: { flex: 1, backgroundColor: '#E5E7EB', alignItems: 'center', justifyContent: 'center' },
+  emoji:       { fontSize: 52 },
+  img:         { width: '100%', height: '100%' },
+});
+
 const AMENITY_ICONS: Record<string, string> = {
   'WiFi Gratis':    '📶',
   'AC':             '❄️',
@@ -38,7 +93,7 @@ interface Props {
   hotelStars: number;
   rooms: RoomType[];
   isLoading: boolean;
-  selectedRoomId: string | null;
+  selectedRoomId: number | null;
   nights: number;
   onSelect: (room: RoomType) => void;
   onClose: () => void;
@@ -94,15 +149,11 @@ export default function RoomTypeSheet({
               {rooms.map((room, idx) => {
                 const isSelected = room.id === selectedRoomId;
                 const totalPrice = room.price_per_night * Math.max(1, nights);
-                // Unique image per room: pakai image_urls dari DB, fallback ke picsum
-                // seed = room.id (UUID unik per hotel per tipe) → gambar berbeda per hotel
-                const imageUri = room.image_urls.length > 0
-                  ? room.image_urls[0]
-                  : `https://picsum.photos/seed/${room.id}/800/500`;
+                const imageUri   = roomImageUri(room);
 
                 return (
                   <View
-                    key={room.id}
+                    key={String(room.id)}
                     style={[styles.roomCard, isSelected && styles.roomCardSelected]}
                   >
                     {/* Room image + overlay */}

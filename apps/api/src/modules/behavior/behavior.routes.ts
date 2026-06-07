@@ -7,7 +7,7 @@ export async function behaviorRoutes(fastify: FastifyInstance) {
 
   // POST /api/v1/me/behavior — fire-and-forget behavioral event
   fastify.post('/', { preHandler: optionalAuth }, async (request, reply) => {
-    const user = (request as any).user as { id?: string } | undefined;
+    const user = (request as any).user as { id?: number } | undefined;
     if (!user?.id) return reply.status(204).send();
 
     const { event_id, action, dwell_ms, session_id } = request.body as any;
@@ -20,7 +20,7 @@ export async function behaviorRoutes(fastify: FastifyInstance) {
 
   // GET /api/v1/me/saved — saved/wishlist events
   fastify.get('/saved', { preHandler: requireAuth }, async (request, reply) => {
-    const { id } = (request as any).user as { id: string };
+    const { id } = (request as any).user as { id: number };
     const ids = await svc.getSavedEventIds(id);
     return reply.send({ data: ids });
   });

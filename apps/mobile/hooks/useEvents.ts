@@ -2,7 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { api } from '../services/api';
 
 export interface ApiEvent {
-  id: string;
+  id: number;
   title: string;
   category: string;
   tags: string[];
@@ -13,12 +13,12 @@ export interface ApiEvent {
   min_price?: number;
   is_available?: boolean;
   organizer?: { id: string; full_name: string } | null;
-  venue: { id: string; name: string; city: string; latitude: number; longitude: number };
+  venue: { id: number; name: string; city: string; latitude: number; longitude: number };
   ticket_tiers: ApiTicketTier[];
 }
 
 export interface ApiTicketTier {
-  id: string;
+  id: number;
   name: string;
   description?: string;
   price: number;

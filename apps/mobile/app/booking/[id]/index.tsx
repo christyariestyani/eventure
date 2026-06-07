@@ -70,6 +70,12 @@ function getCityHighlights(city: string) {
   return key ? CITY_HIGHLIGHTS[key] : null;
 }
 
+// ─── Booking code helper ──────────────────────────────────────────────────────
+// Buat kode unik per layanan dari booking_number
+function serviceCode(bookingNumber: string, suffix: 'HTL' | 'OB' | 'RET') {
+  return `${bookingNumber}/${suffix}`;
+}
+
 // ─── Status config ────────────────────────────────────────────────────────────
 
 const STATUS_CONFIG: Record<string, { label: string; color: string; bg: string; icon: string }> = {
@@ -664,6 +670,10 @@ export default function BookingDetailScreen() {
                   )}
                 </View>
               )}
+              <View style={styles.codeRow}>
+                <Text style={styles.codeLabel}>Kode Booking</Text>
+                <Text style={styles.codeValue}>{serviceCode(booking.booking_number, 'HTL')}</Text>
+              </View>
               <View style={[styles.row, styles.subtotalRow]}>
                 <Text style={styles.subtotalLabel}>Subtotal Penginapan</Text>
                 <Text style={styles.subtotalValue}>{fmt(hotelSubtotal)}</Text>
@@ -711,6 +721,10 @@ export default function BookingDetailScreen() {
                 {(outboundMeta?.seat_pos || outboundMeta?.seat_side) && (
                   <Text style={styles.seatPref}>🪑 {outboundMeta.seat_pos} · {outboundMeta.seat_side}</Text>
                 )}
+                <View style={styles.codeRow}>
+                  <Text style={styles.codeLabel}>Kode Booking</Text>
+                  <Text style={styles.codeValue}>{serviceCode(booking.booking_number, 'OB')}</Text>
+                </View>
               </View>
             )}
 
@@ -748,6 +762,10 @@ export default function BookingDetailScreen() {
                 {(returnMeta?.seat_pos || returnMeta?.seat_side) && (
                   <Text style={styles.seatPref}>🪑 {returnMeta.seat_pos} · {returnMeta.seat_side}</Text>
                 )}
+                <View style={styles.codeRow}>
+                  <Text style={styles.codeLabel}>Kode Booking</Text>
+                  <Text style={styles.codeValue}>{serviceCode(booking.booking_number, 'RET')}</Text>
+                </View>
               </View>
             )}
 
@@ -996,4 +1014,8 @@ const styles = StyleSheet.create({
   totalLabel:     { fontSize: 15, fontWeight: '700', color: '#111827' },
   totalAmount:    { fontSize: 18, fontWeight: '800', color: BLUE },
   paidAt:         { fontSize: 11, color: '#9CA3AF', marginTop: 4, textAlign: 'right' },
+
+  codeRow:   { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 10, paddingTop: 10, borderTopWidth: 1, borderTopColor: '#E5E7EB' },
+  codeLabel: { fontSize: 12, color: '#6B7280', fontWeight: '600' },
+  codeValue: { fontSize: 12, color: BLUE, fontWeight: '800', letterSpacing: 0.8, backgroundColor: '#EFF6FF', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 6 },
 });

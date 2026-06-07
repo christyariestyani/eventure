@@ -63,7 +63,7 @@ async function fetchCandidateEvents(limit = 100) {
 }
 
 // ─── Collaborative Filtering helper ────────────────────────────────────────────
-async function getCollaborativeEventIds(userId: string): Promise<Set<string>> {
+async function getCollaborativeEventIds(userId: number): Promise<Set<string>> {
   // Find users who booked from the same categories, then get their other bookings
   const { data: myBookings } = await supabase
     .from('booking_items')
@@ -185,7 +185,7 @@ export class RecommendationsService {
    *  - nearYou:    events in user's home city / preferred cities
    *  - activity:   events similar to recent behavior (category affinity top picks)
    */
-  async getPersonalizedFeed(userId: string, limit = 10) {
+  async getPersonalizedFeed(userId: number, limit = 10) {
     const [prefs, affinityMap, savedIds, viewedIds, cfIds, events] = await Promise.all([
       prefSvc.get(userId),
       behaviorSvc.getAffinityMap(userId),
@@ -225,7 +225,7 @@ export class RecommendationsService {
     return { forYou, nearYou, activity };
   }
 
-  async getForUser(userId: string, limit = 10) {
+  async getForUser(userId: number, limit = 10) {
     const { forYou } = await this.getPersonalizedFeed(userId, limit);
     return forYou;
   }

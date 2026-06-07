@@ -74,7 +74,7 @@ export interface ItineraryBundle {
 }
 
 export class ItineraryService {
-  async buildForEvent(eventId: string, userId?: string): Promise<ItineraryBundle> {
+  async buildForEvent(eventId: number, userId?: number): Promise<ItineraryBundle> {
     // 1. Fetch event + venue + tiers
     const { data: event, error } = await supabase
       .from('events')

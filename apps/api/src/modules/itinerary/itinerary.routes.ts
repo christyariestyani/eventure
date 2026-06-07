@@ -10,10 +10,12 @@ export async function itineraryRoutes(fastify: FastifyInstance) {
   // Returns a complete travel bundle (ticket + hotel + transport + day schedule)
   fastify.get('/:eventId', { preHandler: optionalAuth }, async (request, reply) => {
     const { eventId } = request.params as { eventId: string };
-    const user = (request as any).user as { id?: string } | undefined;
+    const numEventId = parseInt(eventId, 10);
+    if (isNaN(numEventId)) return reply.status(400).send({ error: 'Invalid event ID' });
+    const user = (request as any).user as { id?: number } | undefined;
 
     try {
-      const bundle = await svc.buildForEvent(eventId, user?.id);
+      const bundle = await svc.buildForEvent(numEventId, user?.id);
       return reply.send({ data: bundle });
     } catch (err: any) {
       if (err.message === 'EVENT_NOT_FOUND') {

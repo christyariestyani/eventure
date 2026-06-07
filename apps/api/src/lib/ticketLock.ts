@@ -13,11 +13,11 @@ return 1
 `;
 
 export async function lockTickets(
-  tierId: string,
+  tierId: number,
   quantity: number,
   bookingId: string
 ): Promise<void> {
-  const quotaKey = QUOTA_KEY(tierId);
+  const quotaKey = QUOTA_KEY(String(tierId));
 
   // Auto-initialize from DB if quota not in Redis (e.g. after cache flush)
   const exists = await redis.exists(quotaKey);
@@ -43,24 +43,24 @@ export async function lockTickets(
   if (result === -1) throw new AppError('TIER_NOT_CACHED', 500);
   if (result === 0) throw new AppError('QUOTA_INSUFFICIENT', 409);
 
-  await redis.setex(LOCK_KEY(tierId, bookingId), LOCK_TTL_SECONDS, quantity);
+  await redis.setex(LOCK_KEY(String(tierId), bookingId), LOCK_TTL_SECONDS, quantity);
 }
 
-export async function releaseLock(tierId: string, bookingId: string): Promise<void> {
-  const qty = await redis.get<number>(LOCK_KEY(tierId, bookingId));
+export async function releaseLock(tierId: number, bookingId: string): Promise<void> {
+  const qty = await redis.get<number>(LOCK_KEY(String(tierId), bookingId));
   if (!qty) return;
 
-  await redis.incrby(QUOTA_KEY(tierId), qty);
-  await redis.del(LOCK_KEY(tierId, bookingId));
+  await redis.incrby(QUOTA_KEY(String(tierId)), qty);
+  await redis.del(LOCK_KEY(String(tierId), bookingId));
 }
 
-export async function commitLock(tierId: string, bookingId: string): Promise<void> {
+export async function commitLock(tierId: number, bookingId: string): Promise<void> {
   // Tiket terjual — hapus lock tanpa kembalikan quota
-  await redis.del(LOCK_KEY(tierId, bookingId));
+  await redis.del(LOCK_KEY(String(tierId), bookingId));
 }
 
-export async function initQuotaCache(tierId: string, quota: number): Promise<void> {
-  await redis.set(QUOTA_KEY(tierId), quota);
+export async function initQuotaCache(tierId: number, quota: number): Promise<void> {
+  await redis.set(QUOTA_KEY(String(tierId)), quota);
 }
 
 export class AppError extends Error {

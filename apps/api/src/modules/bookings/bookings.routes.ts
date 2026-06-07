@@ -9,7 +9,7 @@ export async function bookingsRoutes(fastify: FastifyInstance) {
 
   // POST /api/v1/bookings — create booking & lock tickets
   fastify.post('/', { preHandler: requireAuth }, async (request, reply) => {
-    const user = (request as any).user as { id: string };
+    const user = (request as any).user as { id: number };
     const parsed = CreateBookingSchema.safeParse(request.body);
 
     if (!parsed.success) {
@@ -29,7 +29,7 @@ export async function bookingsRoutes(fastify: FastifyInstance) {
 
   // PATCH /api/v1/bookings/:id/addons — tambah hotel/transport ke booking
   fastify.patch('/:id/addons', { preHandler: requireAuth }, async (request, reply) => {
-    const user = (request as any).user as { id: string };
+    const user = (request as any).user as { id: number };
     const { id } = request.params as { id: string };
     const body = request.body as {
       hotel_id?: string;
@@ -52,7 +52,7 @@ export async function bookingsRoutes(fastify: FastifyInstance) {
 
   // POST /api/v1/bookings/:id/pay — initiate Midtrans payment
   fastify.post('/:id/pay', { preHandler: requireAuth }, async (request, reply) => {
-    const user = (request as any).user as { id: string };
+    const user = (request as any).user as { id: number };
     const { id } = request.params as { id: string };
 
     try {
@@ -68,7 +68,7 @@ export async function bookingsRoutes(fastify: FastifyInstance) {
 
   // GET /api/v1/bookings/:id — booking detail
   fastify.get('/:id', { preHandler: requireAuth }, async (request, reply) => {
-    const user = (request as any).user as { id: string };
+    const user = (request as any).user as { id: number };
     const { id } = request.params as { id: string };
 
     try {
@@ -84,7 +84,7 @@ export async function bookingsRoutes(fastify: FastifyInstance) {
 
   // GET /api/v1/bookings — user's booking history
   fastify.get('/', { preHandler: requireAuth }, async (request, reply) => {
-    const user = (request as any).user as { id: string };
+    const user = (request as any).user as { id: number };
     const { page, limit } = request.query as { page?: number; limit?: number };
     const result = await service.getUserBookings(user.id, page, limit);
     return reply.send(result);
