@@ -187,17 +187,41 @@ export class BookingsService {
         .eq('id', addons.hotel_id)
         .single();
 
+      if (!hotel) {
+        throw new AppError('HOTEL_NOT_FOUND', 404);
+      }
+
+      var basePrice = hotel.base_price;
+
+      if (addons.hotel_meta?.room_type_id) {
+        const { data: roomType } = await supabase
+          .from('room_types')
+          .select('price_per_night, name')
+          .eq('id', addons.hotel_meta?.room_type_id)
+          .eq('accommodation_id', addons.hotel_id)
+          .single();
+
+        if (roomType) {
+          basePrice = roomType.price_per_night;
+          addons.hotel_meta = {
+            ...addons.hotel_meta,
+            room_type_name: roomType.name,
+          };
+        }
+      }
+
       if (hotel) {
         const nights        = addons.hotel_meta?.nights ?? 1;
+        const roomQty       = addons.hotel_meta?.room_qty ?? 1;
         const extraFees     = addons.hotel_meta?.extra_fees ?? 0;
-        const hotelSubtotal = hotel.base_price * Math.max(1, nights);
+        const hotelSubtotal = basePrice * Math.max(1, nights) * Math.max(1, roomQty);
         addonTotal += hotelSubtotal + extraFees;
         await supabase.from('booking_items').insert({
           booking_id: booking.id,
           item_type: 'accommodation',
           accommodation_id: addons.hotel_id,
-          quantity: nights,
-          unit_price: hotel.base_price,
+          quantity: nights * roomQty,
+          unit_price: basePrice,
           subtotal: hotelSubtotal,   // base cost only; extra_fees live in metadata
           metadata: {
             name: hotel.name,
